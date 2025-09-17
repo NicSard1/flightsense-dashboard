@@ -5,61 +5,117 @@
   <title>FlightTest Dashboard – BLE</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { color-scheme: dark; }
-    body { font-family: system-ui, Arial, sans-serif; background:#0e1117; color:#e6edf3; margin:0; }
-    header { background:#0077cc; padding:14px 16px; font-weight:700; }
-    main { padding:18px; max-width:1100px; margin:0 auto; }
-    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    button { padding:10px 14px; border:0; border-radius:10px; background:#238636; color:#fff; font-weight:600; cursor:pointer; }
-    button:disabled { background:#3a3a3a; cursor:not-allowed; }
-    input[type=text]{ padding:8px 10px; border-radius:8px; border:1px solid #30363d; background:#0f141b; color:#e6edf3; width:420px; }
-    small { color:#9da7b3; }
-    #status { margin-left:8px; }
-    .grid { display:grid; grid-template-columns: repeat(3, minmax(240px, 1fr)); gap:16px; margin-top:16px; }
-    .card { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:16px; }
-    .label { font-size:12px; color:#9da7b3; }
-    .value { font-size:36px; font-weight:700; margin-top:6px; }
-    canvas { width:100%; height:90px; display:block; margin-top:10px; }
-    .hint { margin-top:10px; color:#9da7b3; }
+    :root{
+      --bg:#ffffff; --fg:#0f172a; --muted:#5b667a;
+      --brand:#0a7cff; --ok:#10b981; --danger:#ef4444;
+      --card:#ffffff; --border:#e5e7eb; --shadow:0 6px 20px rgba(15,23,42,.08);
+    }
+    /* Reset léger */
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--fg);}
+
+    /* Barre top */
+    header{
+      position:sticky; top:0; z-index:10;
+      background:#fff; border-bottom:1px solid var(--border);
+    }
+    .bar{
+      display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; justify-content:space-between;
+      padding:.75rem 1rem; max-width:1100px; margin:0 auto;
+    }
+    .brand{font-weight:700; letter-spacing:.2px}
+    .controls{display:flex; gap:.5rem; flex-wrap:wrap; align-items:center}
+
+    button{
+      appearance:none; border:1px solid var(--border); background:#fafafa;
+      padding:.7rem 1rem; border-radius:.8rem; font-weight:600; cursor:pointer;
+      transition:.15s ease; min-width:110px;
+    }
+    button:hover{box-shadow:var(--shadow)}
+    button.primary{background:var(--brand); color:#fff; border-color:transparent}
+    button:disabled{opacity:.55; cursor:not-allowed; box-shadow:none}
+
+    .status{font-size:.9rem; color:var(--muted)}
+
+    /* Zone UUID (repliable sur mobile) */
+    .opts{
+      display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;
+      padding:.5rem 1rem 0; max-width:1100px; margin:0 auto;
+    }
+    input[type=text]{
+      flex:1 1 240px; min-width:200px;
+      padding:.6rem .75rem; border:1px solid var(--border);
+      border-radius:.6rem; background:#fff; color:var(--fg);
+    }
+    label{font-size:.85rem; color:var(--muted); margin-right:.25rem}
+
+    main{padding:1rem; max-width:1100px; margin:0 auto;}
+
+    /* Cartes responsive */
+    .grid{
+      display:grid; gap:1rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .card{
+      background:var(--card); border:1px solid var(--border); border-radius:14px;
+      padding:1rem; box-shadow:var(--shadow);
+    }
+    .label{font-size:.85rem; color:var(--muted);}
+    .value{font-size:2.2rem; font-weight:800; line-height:1.1; margin-top:.35rem;}
+    .unit{font-size:1.1rem; color:var(--muted); margin-left:.25rem}
+    .spark{width:100%; height:110px; display:block; margin-top:.6rem;}
+
+    /* Mobile tweaks */
+    @media (max-width:480px){
+      .value{font-size:2rem}
+      .controls{width:100%}
+      .controls button{flex:1}
+      .opts{padding: .25rem 1rem .5rem}
+      label{flex-basis:100%}
+    }
   </style>
 </head>
 <body>
-  <header>FlightTest Dashboard – BLE</header>
-  <main>
-    <div class="row" style="margin-bottom:10px">
-      <button id="btnConnect">Connect BLE</button>
-      <button id="btnDisconnect" disabled>Disconnect</button>
-      <span id="status"><small>Prêt.</small></span>
+  <header>
+    <div class="bar">
+      <div class="brand">FlightTest – Dashboard</div>
+      <div class="controls">
+        <button id="btnConnect" class="primary">Connect BLE</button>
+        <button id="btnDisconnect" disabled>Disconnect</button>
+      </div>
+      <div class="status" id="status">Prêt.</div>
     </div>
-
-    <div class="row" style="margin-bottom:10px">
-      <small>Service UUID:</small>
+    <div class="opts">
+      <label for="svc">Service</label>
       <input id="svc" type="text" value="4fafc201-1fb5-459e-8fcc-c5c9c331914b">
-      <small style="margin-left:10px">Characteristic UUID:</small>
+      <label for="chr">Characteristic</label>
       <input id="chr" type="text" value="beb5483e-36e1-4688-b7f5-ea07361b26a8">
     </div>
+  </header>
 
+  <main>
     <div class="grid">
       <div class="card">
-        <div class="label">Courant (A)</div>
-        <div class="value" id="valI">—</div>
-        <canvas id="plotI" width="400" height="90"></canvas>
+        <div class="label">Courant</div>
+        <div class="value"><span id="valI">—</span><span class="unit">A</span></div>
+        <canvas id="plotI" class="spark"></canvas>
       </div>
       <div class="card">
         <div class="label">Tension (V1)</div>
-        <div class="value" id="valV1">—</div>
-        <canvas id="plotV1" width="400" height="90"></canvas>
+        <div class="value"><span id="valV1">—</span><span class="unit">V</span></div>
+        <canvas id="plotV1" class="spark"></canvas>
       </div>
       <div class="card">
-        <div class="label">Température (°C)</div>
-        <div class="value" id="valT">—</div>
-        <canvas id="plotT" width="400" height="90"></canvas>
+        <div class="label">Température</div>
+        <div class="value"><span id="valT">—</span><span class="unit">°C</span></div>
+        <canvas id="plotT" class="spark"></canvas>
       </div>
     </div>
-    
   </main>
 
 <script>
+/* ---------- UI refs ---------- */
 const statusEl = document.getElementById('status');
 const btnConnect = document.getElementById('btnConnect');
 const btnDisconnect = document.getElementById('btnDisconnect');
@@ -70,56 +126,77 @@ const vI  = document.getElementById('valI');
 const vV1 = document.getElementById('valV1');
 const vT  = document.getElementById('valT');
 
-const BUFLEN = 200;
-const bufs = { I:[], V1:[], T:[] };
-const ctxI  = document.getElementById('plotI').getContext('2d');
-const ctxV1 = document.getElementById('plotV1').getContext('2d');
-const ctxT  = document.getElementById('plotT').getContext('2d');
+const canvI  = document.getElementById('plotI');
+const canvV1 = document.getElementById('plotV1');
+const canvT  = document.getElementById('plotT');
 
+let ctxI, ctxV1, ctxT;
 let device=null, server=null, characteristic=null;
 
-function setStatus(t){ statusEl.innerHTML = `<small>${t}</small>`; }
-function fmt(v, d=2){ return Number.isFinite(v) ? v.toFixed(d) : '—'; }
+/* ---------- Helpers ---------- */
+function setStatus(t){ statusEl.textContent = t; }
+function fmt(v,d=2){ return Number.isFinite(v) ? v.toFixed(d) : '—'; }
 
-function push(buf, val){
-  buf.push(val);
-  if (buf.length > BUFLEN) buf.shift();
+/* DPR-aware canvas sizing (net sur mobile) */
+function fitCanvas(canvas, targetH=110){
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const cssW = canvas.clientWidth;
+  const cssH = targetH; // CSS fixed height (from .spark)
+  canvas.width  = Math.floor(cssW * dpr);
+  canvas.height = Math.floor(cssH * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0); // scale drawing to CSS pixels
+  return ctx;
 }
+function resizeAll(){
+  ctxI  = fitCanvas(canvI);
+  ctxV1 = fitCanvas(canvV1);
+  ctxT  = fitCanvas(canvT);
+  // redraw with existing buffers
+  drawSparkline(ctxI,  bufs.I);
+  drawSparkline(ctxV1, bufs.V1);
+  drawSparkline(ctxT,  bufs.T);
+}
+window.addEventListener('resize', () => { clearTimeout(resizeAll._t); resizeAll._t=setTimeout(resizeAll, 120); });
+
+/* Tiny sparkline */
+const BUFLEN = 180;
+const bufs = { I:[], V1:[], T:[] };
+function push(buf, val){ buf.push(val); if(buf.length>BUFLEN) buf.shift(); }
 function drawSparkline(ctx, data){
-  const W=ctx.canvas.width, H=ctx.canvas.height;
+  const W = ctx.canvas.clientWidth, H = ctx.canvas.clientHeight;
   ctx.clearRect(0,0,W,H);
-  if (data.length<2) return;
+  if (data.length < 2) return;
   let min=Infinity, max=-Infinity;
-  for (const x of data) if (Number.isFinite(x)){ if (x<min) min=x; if (x>max) max=x; }
-  if (!Number.isFinite(min)||!Number.isFinite(max)||min===max){ min -= 1; max += 1; }
-  const pad=6; ctx.strokeStyle='#58a6ff'; ctx.lineWidth=2; ctx.beginPath();
+  for(const v of data){ if(Number.isFinite(v)){ if(v<min)min=v; if(v>max)max=v; } }
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min===max){ min -= 1; max += 1; }
+  const pad = 6;
+  ctx.lineWidth = 2; ctx.strokeStyle = '#0a7cff'; ctx.beginPath();
   data.forEach((v,i)=>{
     const x = pad + (W-2*pad) * (i/(data.length-1));
     const y = H-pad - ((v-min)/(max-min))*(H-2*pad);
-    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
   });
   ctx.stroke();
 }
 
+/* ---------- BLE handling ---------- */
 function handleNotif(event){
   const dv = event.target.value;
-  let s = '';
-  for (let i=0;i<dv.byteLength;i++) s += String.fromCharCode(dv.getUint8(i));
-  s = s.trim();
-  const line = s.split(/\r?\n/).pop();
-
+  let s = ''; for(let i=0;i<dv.byteLength;i++) s += String.fromCharCode(dv.getUint8(i));
+  const line = s.trim().split(/\r?\n/).pop();
   const tok = line.split(';');
   if (tok.length < 3) return;
 
-  const I  = parseFloat(tok[0]);    // courant
-  const V1 = parseFloat(tok[1]);    // tension
+  const I  = parseFloat(tok[0]);
+  const V1 = parseFloat(tok[1]);
   const T  = (tok[2].toUpperCase?.()==='NAN') ? NaN : parseFloat(tok[2]);
 
-  vI.textContent  = Number.isFinite(I)  ? I.toFixed(3) : '—';
-  vV1.textContent = Number.isFinite(V1) ? V1.toFixed(3) : '—';
-  vT.textContent  = Number.isFinite(T)  ? T.toFixed(2)  : '—';
+  vI.textContent  = fmt(I,3);
+  vV1.textContent = fmt(V1,3);
+  vT.textContent  = Number.isFinite(T) ? fmt(T,1) : '—';
 
-  push(bufs.I, I);   drawSparkline(ctxI, bufs.I);
+  push(bufs.I, I);   drawSparkline(ctxI,  bufs.I);
   push(bufs.V1, V1); drawSparkline(ctxV1, bufs.V1);
   if (Number.isFinite(T)) push(bufs.T, T);
   drawSparkline(ctxT, bufs.T);
@@ -127,9 +204,7 @@ function handleNotif(event){
 
 async function connect(){
   try{
-    btnConnect.disabled = true;
-    setStatus('Scan BLE…');
-
+    btnConnect.disabled = true; setStatus('Scan BLE…');
     const serviceUuid = svcInput.value.trim();
     const charUuid    = chrInput.value.trim();
 
@@ -154,14 +229,12 @@ async function connect(){
 
     setStatus('Connecté & abonné ✅');
     btnDisconnect.disabled = false;
-
   }catch(e){
     console.error(e);
     setStatus('Erreur: '+ e.message);
     btnConnect.disabled = false;
   }
 }
-
 async function disconnect(){
   try{
     if (characteristic){
@@ -180,13 +253,11 @@ function onDisconnected(){
   btnDisconnect.disabled = true;
 }
 
+/* ---------- Init ---------- */
 btnConnect.addEventListener('click', connect);
 btnDisconnect.addEventListener('click', disconnect);
-
-// Petit test de support
-if (!('bluetooth' in navigator)){
-  setStatus('Web Bluetooth non supporté dans ce navigateur.');
-}
+if (!('bluetooth' in navigator)){ setStatus('Web Bluetooth non supporté dans ce navigateur.'); }
+resizeAll(); // size canvases once at load
 </script>
 </body>
 </html>
