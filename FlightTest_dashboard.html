@@ -102,30 +102,27 @@ function drawSparkline(ctx, data){
 }
 
 function handleNotif(event){
-  const dv = event.target.value; // DataView
-  // Les notifs BLE sont envoyées en ASCII par ton code: "I;V1;V0;TempC"
+  const dv = event.target.value;
   let s = '';
   for (let i=0;i<dv.byteLength;i++) s += String.fromCharCode(dv.getUint8(i));
   s = s.trim();
-  // On tolère CR/LF et concat éventuelle => on ne garde que la dernière ligne complète
-  const lines = s.split(/\r?\n/);
-  const line = lines[lines.length-1];
+  const line = s.split(/\r?\n/).pop();
 
   const tok = line.split(';');
-  if (tok.length < 4) return;
+  if (tok.length < 3) return;
 
-  const I  = parseFloat(tok[0]);      // courant
-  const V1 = parseFloat(tok[1]);      // tension (V1)
-  // const V0 = parseFloat(tok[2]);   // dispo si tu veux l’afficher aussi
-  const T  = (tok[3].toUpperCase()==='NAN') ? NaN : parseFloat(tok[3]);
+  const I  = parseFloat(tok[0]);    // courant
+  const V1 = parseFloat(tok[1]);    // tension
+  const T  = (tok[2].toUpperCase?.()==='NAN') ? NaN : parseFloat(tok[2]);
 
-  vI.textContent  = fmt(I,3);
-  vV1.textContent = fmt(V1,3);
-  vT.textContent  = Number.isFinite(T) ? fmt(T,2) : '—';
+  vI.textContent  = Number.isFinite(I)  ? I.toFixed(3) : '—';
+  vV1.textContent = Number.isFinite(V1) ? V1.toFixed(3) : '—';
+  vT.textContent  = Number.isFinite(T)  ? T.toFixed(2)  : '—';
 
-  push(bufs.I, I);   drawSparkline(ctxI,  bufs.I);
+  push(bufs.I, I);   drawSparkline(ctxI, bufs.I);
   push(bufs.V1, V1); drawSparkline(ctxV1, bufs.V1);
-  if (Number.isFinite(T)) push(bufs.T, T); drawSparkline(ctxT,  bufs.T);
+  if (Number.isFinite(T)) push(bufs.T, T);
+  drawSparkline(ctxT, bufs.T);
 }
 
 async function connect(){
