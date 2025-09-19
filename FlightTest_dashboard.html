@@ -10,63 +10,31 @@
       --brand:#0a7cff; --ok:#10b981; --danger:#ef4444;
       --card:#ffffff; --border:#e5e7eb; --shadow:0 6px 20px rgba(15,23,42,.08);
     }
-    /* Reset léger */
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--fg);}
-
-    /* Barre top */
-    header{
-      position:sticky; top:0; z-index:10;
-      background:#fff; border-bottom:1px solid var(--border);
-    }
-    .bar{
-      display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; justify-content:space-between;
-      padding:.75rem 1rem; max-width:1100px; margin:0 auto;
-    }
+    header{position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--border);}
+    .bar{display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; justify-content:space-between; padding:.75rem 1rem; max-width:1100px; margin:0 auto;}
     .brand{font-weight:700; letter-spacing:.2px}
     .controls{display:flex; gap:.5rem; flex-wrap:wrap; align-items:center}
-
-    button{
-      appearance:none; border:1px solid var(--border); background:#fafafa;
-      padding:.7rem 1rem; border-radius:.8rem; font-weight:600; cursor:pointer;
-      transition:.15s ease; min-width:110px;
-    }
+    button{appearance:none; border:1px solid var(--border); background:#fafafa; padding:.7rem 1rem; border-radius:.8rem; font-weight:600; cursor:pointer; transition:.15s ease; min-width:110px;}
     button:hover{box-shadow:var(--shadow)}
     button.primary{background:var(--brand); color:#fff; border-color:transparent}
     button:disabled{opacity:.55; cursor:not-allowed; box-shadow:none}
-
     .status{font-size:.9rem; color:var(--muted)}
-
-    /* Zone UUID (repliable sur mobile) */
-    .opts{
-      display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;
-      padding:.5rem 1rem 0; max-width:1100px; margin:0 auto;
-    }
-    input[type=text]{
-      flex:1 1 240px; min-width:200px;
-      padding:.6rem .75rem; border:1px solid var(--border);
-      border-radius:.6rem; background:#fff; color:var(--fg);
-    }
+    .opts{display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; padding:.5rem 1rem 0; max-width:1100px; margin:0 auto;}
+    input[type=text]{flex:1 1 240px; min-width:200px; padding:.6rem .75rem; border:1px solid var(--border); border-radius:.6rem; background:#fff; color:var(--fg);}
     label{font-size:.85rem; color:var(--muted); margin-right:.25rem}
-
     main{padding:1rem; max-width:1100px; margin:0 auto;}
-
-    /* Cartes responsive */
-    .grid{
-      display:grid; gap:1rem;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-    .card{
-      background:var(--card); border:1px solid var(--border); border-radius:14px;
-      padding:1rem; box-shadow:var(--shadow);
-    }
+    .grid{display:grid; gap:1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));}
+    .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:1rem; box-shadow:var(--shadow);}
     .label{font-size:.85rem; color:var(--muted);}
     .value{font-size:2.2rem; font-weight:800; line-height:1.1; margin-top:.35rem;}
     .unit{font-size:1.1rem; color:var(--muted); margin-left:.25rem}
     .spark{width:100%; height:110px; display:block; margin-top:.6rem;}
-
-    /* Mobile tweaks */
+    /* Min/Max line */
+    .minmax{margin-top:.35rem; font-size:.9rem; color:var(--muted)}
+    .minmax .k{font-weight:600; color:#334155; margin-right:.25rem}
     @media (max-width:480px){
       .value{font-size:2rem}
       .controls{width:100%}
@@ -83,6 +51,7 @@
       <div class="controls">
         <button id="btnConnect" class="primary">Connect BLE</button>
         <button id="btnDisconnect" disabled>Disconnect</button>
+        <button id="btnResetMM" title="Réinitialiser min/max">Reset min/max</button>
       </div>
       <div class="status" id="status">Prêt.</div>
     </div>
@@ -99,16 +68,28 @@
       <div class="card">
         <div class="label">Courant</div>
         <div class="value"><span id="valI">—</span><span class="unit">A</span></div>
+        <div class="minmax">
+          <span class="k">Min</span><span id="minI">—</span>
+          &nbsp;&nbsp;<span class="k">Max</span><span id="maxI">—</span>
+        </div>
         <canvas id="plotI" class="spark"></canvas>
       </div>
       <div class="card">
         <div class="label">Tension (V1)</div>
         <div class="value"><span id="valV1">—</span><span class="unit">V</span></div>
+        <div class="minmax">
+          <span class="k">Min</span><span id="minV1">—</span>
+          &nbsp;&nbsp;<span class="k">Max</span><span id="maxV1">—</span>
+        </div>
         <canvas id="plotV1" class="spark"></canvas>
       </div>
       <div class="card">
         <div class="label">Température</div>
         <div class="value"><span id="valT">—</span><span class="unit">°C</span></div>
+        <div class="minmax">
+          <span class="k">Min</span><span id="minT">—</span>
+          &nbsp;&nbsp;<span class="k">Max</span><span id="maxT">—</span>
+        </div>
         <canvas id="plotT" class="spark"></canvas>
       </div>
     </div>
@@ -119,12 +100,20 @@
 const statusEl = document.getElementById('status');
 const btnConnect = document.getElementById('btnConnect');
 const btnDisconnect = document.getElementById('btnDisconnect');
+const btnResetMM = document.getElementById('btnResetMM');
 const svcInput = document.getElementById('svc');
 const chrInput = document.getElementById('chr');
 
 const vI  = document.getElementById('valI');
 const vV1 = document.getElementById('valV1');
 const vT  = document.getElementById('valT');
+
+const minI = document.getElementById('minI');
+const maxI = document.getElementById('maxI');
+const minV1 = document.getElementById('minV1');
+const maxV1 = document.getElementById('maxV1');
+const minT = document.getElementById('minT');
+const maxT = document.getElementById('maxT');
 
 const canvI  = document.getElementById('plotI');
 const canvV1 = document.getElementById('plotV1');
@@ -137,22 +126,44 @@ let device=null, server=null, characteristic=null;
 function setStatus(t){ statusEl.textContent = t; }
 function fmt(v,d=2){ return Number.isFinite(v) ? v.toFixed(d) : '—'; }
 
-/* DPR-aware canvas sizing (net sur mobile) */
+/* Min/Max state (session) */
+const mm = {
+  I: {min: +Infinity, max: -Infinity, d:3},
+  V1:{min: +Infinity, max: -Infinity, d:3},
+  T: {min: +Infinity, max: -Infinity, d:1},
+};
+function updateMM(key, val){
+  if (!Number.isFinite(val)) return;
+  const s = mm[key];
+  if (val < s.min) s.min = val;
+  if (val > s.max) s.max = val;
+  // reflect UI
+  if (key==='I') { minI.textContent = fmt(s.min, s.d); maxI.textContent = fmt(s.max, s.d); }
+  if (key==='V1'){ minV1.textContent= fmt(s.min, s.d); maxV1.textContent= fmt(s.max, s.d); }
+  if (key==='T') { minT.textContent = fmt(s.min, s.d); maxT.textContent = fmt(s.max, s.d); }
+}
+function resetMM(){
+  for (const k of Object.keys(mm)) { mm[k].min=+Infinity; mm[k].max=-Infinity; }
+  minI.textContent = maxI.textContent = '—';
+  minV1.textContent = maxV1.textContent = '—';
+  minT.textContent = maxT.textContent = '—';
+}
+
+/* DPR-aware canvas sizing */
 function fitCanvas(canvas, targetH=110){
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   const cssW = canvas.clientWidth;
-  const cssH = targetH; // CSS fixed height (from .spark)
+  const cssH = targetH;
   canvas.width  = Math.floor(cssW * dpr);
   canvas.height = Math.floor(cssH * dpr);
   const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr,0,0,dpr,0,0); // scale drawing to CSS pixels
+  ctx.setTransform(dpr,0,0,dpr,0,0);
   return ctx;
 }
 function resizeAll(){
   ctxI  = fitCanvas(canvI);
   ctxV1 = fitCanvas(canvV1);
   ctxT  = fitCanvas(canvT);
-  // redraw with existing buffers
   drawSparkline(ctxI,  bufs.I);
   drawSparkline(ctxV1, bufs.V1);
   drawSparkline(ctxT,  bufs.T);
@@ -195,6 +206,10 @@ function handleNotif(event){
   vI.textContent  = fmt(I,3);
   vV1.textContent = fmt(V1,3);
   vT.textContent  = Number.isFinite(T) ? fmt(T,1) : '—';
+
+  updateMM('I', I);
+  updateMM('V1', V1);
+  if (Number.isFinite(T)) updateMM('T', T);
 
   push(bufs.I, I);   drawSparkline(ctxI,  bufs.I);
   push(bufs.V1, V1); drawSparkline(ctxV1, bufs.V1);
@@ -256,8 +271,9 @@ function onDisconnected(){
 /* ---------- Init ---------- */
 btnConnect.addEventListener('click', connect);
 btnDisconnect.addEventListener('click', disconnect);
+btnResetMM.addEventListener('click', resetMM);
 if (!('bluetooth' in navigator)){ setStatus('Web Bluetooth non supporté dans ce navigateur.'); }
-resizeAll(); // size canvases once at load
+resizeAll();
 </script>
 </body>
 </html>
