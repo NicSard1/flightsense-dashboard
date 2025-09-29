@@ -32,7 +32,6 @@
     .value{font-size:2.2rem; font-weight:800; line-height:1.1; margin-top:.35rem;}
     .unit{font-size:1.1rem; color:var(--muted); margin-left:.25rem}
     .spark{width:100%; height:110px; display:block; margin-top:.6rem;}
-    /* Min/Max line */
     .minmax{margin-top:.35rem; font-size:.9rem; color:var(--muted)}
     .minmax .k{font-weight:600; color:#334155; margin-right:.25rem}
     @media (max-width:480px){
@@ -74,6 +73,7 @@
         </div>
         <canvas id="plotI" class="spark"></canvas>
       </div>
+
       <div class="card">
         <div class="label">Tension (V1)</div>
         <div class="value"><span id="valV1">—</span><span class="unit">V</span></div>
@@ -83,14 +83,25 @@
         </div>
         <canvas id="plotV1" class="spark"></canvas>
       </div>
+
       <div class="card">
-        <div class="label">Température</div>
-        <div class="value"><span id="valT">—</span><span class="unit">°C</span></div>
+        <div class="label">Température T1</div>
+        <div class="value"><span id="valT1">—</span><span class="unit">°C</span></div>
         <div class="minmax">
-          <span class="k">Min</span><span id="minT">—</span>
-          &nbsp;&nbsp;<span class="k">Max</span><span id="maxT">—</span>
+          <span class="k">Min</span><span id="minT1">—</span>
+          &nbsp;&nbsp;<span class="k">Max</span><span id="maxT1">—</span>
         </div>
-        <canvas id="plotT" class="spark"></canvas>
+        <canvas id="plotT1" class="spark"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="label">Température T2</div>
+        <div class="value"><span id="valT2">—</span><span class="unit">°C</span></div>
+        <div class="minmax">
+          <span class="k">Min</span><span id="minT2">—</span>
+          &nbsp;&nbsp;<span class="k">Max</span><span id="maxT2">—</span>
+        </div>
+        <canvas id="plotT2" class="spark"></canvas>
       </div>
     </div>
   </main>
@@ -106,20 +117,24 @@ const chrInput = document.getElementById('chr');
 
 const vI  = document.getElementById('valI');
 const vV1 = document.getElementById('valV1');
-const vT  = document.getElementById('valT');
+const vT1 = document.getElementById('valT1');
+const vT2 = document.getElementById('valT2');
 
 const minI = document.getElementById('minI');
 const maxI = document.getElementById('maxI');
 const minV1 = document.getElementById('minV1');
 const maxV1 = document.getElementById('maxV1');
-const minT = document.getElementById('minT');
-const maxT = document.getElementById('maxT');
+const minT1 = document.getElementById('minT1');
+const maxT1 = document.getElementById('maxT1');
+const minT2 = document.getElementById('minT2');
+const maxT2 = document.getElementById('maxT2');
 
 const canvI  = document.getElementById('plotI');
 const canvV1 = document.getElementById('plotV1');
-const canvT  = document.getElementById('plotT');
+const canvT1 = document.getElementById('plotT1');
+const canvT2 = document.getElementById('plotT2');
 
-let ctxI, ctxV1, ctxT;
+let ctxI, ctxV1, ctxT1, ctxT2;
 let device=null, server=null, characteristic=null;
 
 /* ---------- Helpers ---------- */
@@ -128,25 +143,27 @@ function fmt(v,d=2){ return Number.isFinite(v) ? v.toFixed(d) : '—'; }
 
 /* Min/Max state (session) */
 const mm = {
-  I: {min: +Infinity, max: -Infinity, d:3},
-  V1:{min: +Infinity, max: -Infinity, d:3},
-  T: {min: +Infinity, max: -Infinity, d:1},
+  I:  {min: +Infinity, max: -Infinity, d:3},
+  V1: {min: +Infinity, max: -Infinity, d:3},
+  T1: {min: +Infinity, max: -Infinity, d:1},
+  T2: {min: +Infinity, max: -Infinity, d:1},
 };
 function updateMM(key, val){
   if (!Number.isFinite(val)) return;
   const s = mm[key];
   if (val < s.min) s.min = val;
   if (val > s.max) s.max = val;
-  // reflect UI
-  if (key==='I') { minI.textContent = fmt(s.min, s.d); maxI.textContent = fmt(s.max, s.d); }
-  if (key==='V1'){ minV1.textContent= fmt(s.min, s.d); maxV1.textContent= fmt(s.max, s.d); }
-  if (key==='T') { minT.textContent = fmt(s.min, s.d); maxT.textContent = fmt(s.max, s.d); }
+  if (key==='I')  { minI.textContent  = fmt(s.min, s.d); maxI.textContent  = fmt(s.max, s.d); }
+  if (key==='V1') { minV1.textContent = fmt(s.min, s.d); maxV1.textContent = fmt(s.max, s.d); }
+  if (key==='T1') { minT1.textContent = fmt(s.min, s.d); maxT1.textContent = fmt(s.max, s.d); }
+  if (key==='T2') { minT2.textContent = fmt(s.min, s.d); maxT2.textContent = fmt(s.max, s.d); }
 }
 function resetMM(){
   for (const k of Object.keys(mm)) { mm[k].min=+Infinity; mm[k].max=-Infinity; }
   minI.textContent = maxI.textContent = '—';
   minV1.textContent = maxV1.textContent = '—';
-  minT.textContent = maxT.textContent = '—';
+  minT1.textContent = maxT1.textContent = '—';
+  minT2.textContent = maxT2.textContent = '—';
 }
 
 /* DPR-aware canvas sizing */
@@ -163,16 +180,18 @@ function fitCanvas(canvas, targetH=110){
 function resizeAll(){
   ctxI  = fitCanvas(canvI);
   ctxV1 = fitCanvas(canvV1);
-  ctxT  = fitCanvas(canvT);
+  ctxT1 = fitCanvas(canvT1);
+  ctxT2 = fitCanvas(canvT2);
   drawSparkline(ctxI,  bufs.I);
   drawSparkline(ctxV1, bufs.V1);
-  drawSparkline(ctxT,  bufs.T);
+  drawSparkline(ctxT1, bufs.T1);
+  drawSparkline(ctxT2, bufs.T2);
 }
 window.addEventListener('resize', () => { clearTimeout(resizeAll._t); resizeAll._t=setTimeout(resizeAll, 120); });
 
 /* Tiny sparkline */
 const BUFLEN = 180;
-const bufs = { I:[], V1:[], T:[] };
+const bufs = { I:[], V1:[], T1:[], T2:[] };
 function push(buf, val){ buf.push(val); if(buf.length>BUFLEN) buf.shift(); }
 function drawSparkline(ctx, data){
   const W = ctx.canvas.clientWidth, H = ctx.canvas.clientHeight;
@@ -192,29 +211,47 @@ function drawSparkline(ctx, data){
 }
 
 /* ---------- BLE handling ---------- */
+function parseMaybeNaN(tok){
+  const t = String(tok ?? '').trim();
+  if (!t) return NaN;
+  if (t.toLowerCase() === 'nan') return NaN;
+  const v = parseFloat(t);
+  return Number.isFinite(v) ? v : NaN;
+}
+
 function handleNotif(event){
   const dv = event.target.value;
   let s = ''; for(let i=0;i<dv.byteLength;i++) s += String.fromCharCode(dv.getUint8(i));
   const line = s.trim().split(/\r?\n/).pop();
   const tok = line.split(';');
-  if (tok.length < 3) return;
 
-  const I  = parseFloat(tok[0]);
-  const V1 = parseFloat(tok[1]);
-  const T  = (tok[2].toUpperCase?.()==='NAN') ? NaN : parseFloat(tok[2]);
+  // Attend I;V;T1;T2 — mais tolère si T2 absent
+  if (tok.length < 2) return;
 
+  const I   = parseMaybeNaN(tok[0]);
+  const V1  = parseMaybeNaN(tok[1]);
+  const T1  = parseMaybeNaN(tok[2]);
+  const T2  = parseMaybeNaN(tok[3]);
+
+  // Affichage valeurs
   vI.textContent  = fmt(I,3);
   vV1.textContent = fmt(V1,3);
-  vT.textContent  = Number.isFinite(T) ? fmt(T,1) : '—';
+  vT1.textContent = Number.isFinite(T1) ? fmt(T1,1) : '—';
+  vT2.textContent = Number.isFinite(T2) ? fmt(T2,1) : '—';
 
+  // Min/Max
   updateMM('I', I);
   updateMM('V1', V1);
-  if (Number.isFinite(T)) updateMM('T', T);
+  if (Number.isFinite(T1)) updateMM('T1', T1);
+  if (Number.isFinite(T2)) updateMM('T2', T2);
 
-  push(bufs.I, I);   drawSparkline(ctxI,  bufs.I);
-  push(bufs.V1, V1); drawSparkline(ctxV1, bufs.V1);
-  if (Number.isFinite(T)) push(bufs.T, T);
-  drawSparkline(ctxT, bufs.T);
+  // Courbes
+  push(bufs.I, I);     drawSparkline(ctxI,  bufs.I);
+  push(bufs.V1, V1);   drawSparkline(ctxV1, bufs.V1);
+  if (Number.isFinite(T1)) push(bufs.T1, T1);
+  if (Number.isFinite(T2)) push(bufs.T2, T2);
+  drawSparkline(ctxT1, bufs.T1);
+  drawSparkline(ctxT2, bufs.T2);
 }
 
 async function connect(){
