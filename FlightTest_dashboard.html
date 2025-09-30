@@ -53,6 +53,8 @@
         <button id="btnResetMM" title="Réinitialiser min/max">Reset min/max</button>
         <button id="btnLog" title="Start/Stop enregistrement">Start logging</button>
         <button id="btnDownload" disabled>Télécharger CSV</button>
+        <button id="btnOpenCsv" disabled>Ouvrir CSV</button>
+        <button id="btnCopyCsv" disabled>Copier CSV</button>
       </div>
       <div class="status" id="status">Prêt.</div>
     </div>
@@ -116,6 +118,9 @@ const btnDisconnect = document.getElementById('btnDisconnect');
 const btnResetMM = document.getElementById('btnResetMM');
 const btnLog = document.getElementById('btnLog');
 const btnDownload = document.getElementById('btnDownload');
+const btnOpenCsv = document.getElementById('btnOpenCsv');
+const btnCopyCsv = document.getElementById('btnCopyCsv');
+
 const svcInput = document.getElementById('svc');
 const chrInput = document.getElementById('chr');
 
@@ -216,10 +221,9 @@ function drawSparkline(ctx, data){
 
 /* ---------- Logging (CSV pour Excel) ---------- */
 let isLogging = false;
-let logRows = []; // lignes CSV "timestamp;I_A;V_V;T1_C;T2_C"
+let logRows = []; // "timestamp;I_A;V_V;T1_C;T2_C"
 
 function nowIsoLocal(){
-  // ISO local avec offset (Excel/Sheets OK)
   const d = new Date();
   const tz = -d.getTimezoneOffset();
   const sign = tz >= 0 ? '+' : '-';
@@ -227,35 +231,74 @@ function nowIsoLocal(){
   const mm = String(Math.abs(tz)%60).padStart(2,'0');
   return d.toISOString().replace('Z','') + sign + hh + ':' + mm;
 }
-
+function refreshExportButtons(){
+  const hasData = logRows.length > 1;
+  btnDownload.disabled = !hasData;
+  btnOpenCsv.disabled  = !hasData;
+  btnCopyCsv.disabled  = !hasData;
+}
 function startLogging(){
   logRows = [];
   logRows.push(['timestamp','I_A','V_V','T1_C','T2_C'].join(';'));
   isLogging = true;
   btnLog.textContent = 'Stop logging';
-  btnDownload.disabled = true;
   setStatus('Enregistrement en cours…');
+  refreshExportButtons();
 }
 function stopLogging(){
   isLogging = false;
   btnLog.textContent = 'Start logging';
-  btnDownload.disabled = logRows.length <= 1;
   setStatus('Enregistrement stoppé.');
+  refreshExportButtons();
 }
 function downloadCSV(){
   if (logRows.length <= 1) return;
   const csv = logRows.join('\n') + '\n';
-  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const ts = new Date().toISOString().replace(/[:.]/g,'-');
-  a.href = url;
-  a.download = `FlightTest_${ts}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  setStatus('CSV téléchargé ✅');
+  try{
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ts = new Date().toISOString().replace(/[:.]/g,'-');
+    a.href = url;
+    a.download = `FlightTest_${ts}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setStatus('CSV téléchargé ✅');
+  }catch(e){
+    setStatus('Téléchargement non supporté ici.');
+  }
+}
+function openCSVInTab(){
+  if (logRows.length <= 1) return;
+  const csv = logRows.join('\n') + '\n';
+  const win = window.open();
+  if (!win) { setStatus('Pop-up bloquée. Autorise les pop-up.'); return; }
+  win.document.write('<pre style="white-space:pre-wrap;word-wrap:break-word;margin:1rem;">'
+    + csv.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    + '</pre>');
+  setStatus('CSV ouvert. Sélectionne et copie.');
+}
+async function copyCSV(){
+  if (logRows.length <= 1) return;
+  const csv = logRows.join('\n') + '\n';
+  try{
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(csv);
+      setStatus('CSV copié dans le presse-papiers ✅');
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = csv;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setStatus('CSV copié ✅');
+    }
+  }catch(e){
+    setStatus('Impossible de copier. Utilise “Ouvrir CSV”.');
+  }
 }
 
 /* ---------- BLE handling ---------- */
@@ -279,19 +322,16 @@ function handleNotif(event){
   const T1  = parseMaybeNaN(tok[2]);
   const T2  = parseMaybeNaN(tok[3]);
 
-  // Affichage valeurs
   vI.textContent  = fmt(I,3);
   vV1.textContent = fmt(V1,3);
   vT1.textContent = Number.isFinite(T1) ? fmt(T1,1) : '—';
   vT2.textContent = Number.isFinite(T2) ? fmt(T2,1) : '—';
 
-  // Min/Max
   updateMM('I', I);
   updateMM('V1', V1);
   if (Number.isFinite(T1)) updateMM('T1', T1);
   if (Number.isFinite(T2)) updateMM('T2', T2);
 
-  // Courbes
   push(bufs.I, I);     drawSparkline(ctxI,  bufs.I);
   push(bufs.V1, V1);   drawSparkline(ctxV1, bufs.V1);
   if (Number.isFinite(T1)) push(bufs.T1, T1);
@@ -299,7 +339,6 @@ function handleNotif(event){
   drawSparkline(ctxT1, bufs.T1);
   drawSparkline(ctxT2, bufs.T2);
 
-  // Enregistrement CSV si actif
   if (isLogging) {
     const row = [
       nowIsoLocal(),
@@ -309,11 +348,16 @@ function handleNotif(event){
       Number.isFinite(T2) ? T2.toFixed(1) : ''
     ].join(';');
     logRows.push(row);
+    refreshExportButtons();
   }
 }
 
 async function connect(){
   try{
+    if (!('bluetooth' in navigator)) {
+      setStatus('Web Bluetooth non supporté ici. Sur iOS, utilise Bluefy/WebBLE. Sur desktop, Chrome/Edge.');
+      return;
+    }
     btnConnect.disabled = true; setStatus('Scan BLE…');
     const serviceUuid = svcInput.value.trim();
     const charUuid    = chrInput.value.trim();
@@ -352,7 +396,7 @@ async function disconnect(){
       characteristic.removeEventListener('characteristicvaluechanged', handleNotif);
       characteristic = null;
     }
-    if (device && device.gatt.connected) device.gatt.disconnect();
+    if (device && device.gatt?.connected) device.gatt.disconnect();
   }finally{
     onDisconnected();
   }
@@ -369,9 +413,11 @@ btnDisconnect.addEventListener('click', disconnect);
 btnResetMM.addEventListener('click', resetMM);
 btnLog.addEventListener('click', () => isLogging ? stopLogging() : startLogging());
 btnDownload.addEventListener('click', downloadCSV);
+btnOpenCsv.addEventListener('click', openCSVInTab);
+btnCopyCsv.addEventListener('click', copyCSV);
 
 if (!('bluetooth' in navigator)){
-  setStatus('Web Bluetooth non supporté dans ce navigateur.');
+  setStatus('Web Bluetooth non supporté dans ce navigateur. Sur iOS : Bluefy/WebBLE.');
 }
 resizeAll();
 </script>
