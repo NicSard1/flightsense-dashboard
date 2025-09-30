@@ -51,6 +51,8 @@
         <button id="btnConnect" class="primary">Connect BLE</button>
         <button id="btnDisconnect" disabled>Disconnect</button>
         <button id="btnResetMM" title="Réinitialiser min/max">Reset min/max</button>
+        <button id="btnLog" title="Start/Stop enregistrement">Start logging</button>
+        <button id="btnDownload" disabled>Télécharger CSV</button>
       </div>
       <div class="status" id="status">Prêt.</div>
     </div>
@@ -112,6 +114,8 @@ const statusEl = document.getElementById('status');
 const btnConnect = document.getElementById('btnConnect');
 const btnDisconnect = document.getElementById('btnDisconnect');
 const btnResetMM = document.getElementById('btnResetMM');
+const btnLog = document.getElementById('btnLog');
+const btnDownload = document.getElementById('btnDownload');
 const svcInput = document.getElementById('svc');
 const chrInput = document.getElementById('chr');
 
@@ -210,6 +214,50 @@ function drawSparkline(ctx, data){
   ctx.stroke();
 }
 
+/* ---------- Logging (CSV pour Excel) ---------- */
+let isLogging = false;
+let logRows = []; // lignes CSV "timestamp;I_A;V_V;T1_C;T2_C"
+
+function nowIsoLocal(){
+  // ISO local avec offset (Excel/Sheets OK)
+  const d = new Date();
+  const tz = -d.getTimezoneOffset();
+  const sign = tz >= 0 ? '+' : '-';
+  const hh = String(Math.floor(Math.abs(tz)/60)).padStart(2,'0');
+  const mm = String(Math.abs(tz)%60).padStart(2,'0');
+  return d.toISOString().replace('Z','') + sign + hh + ':' + mm;
+}
+
+function startLogging(){
+  logRows = [];
+  logRows.push(['timestamp','I_A','V_V','T1_C','T2_C'].join(';'));
+  isLogging = true;
+  btnLog.textContent = 'Stop logging';
+  btnDownload.disabled = true;
+  setStatus('Enregistrement en cours…');
+}
+function stopLogging(){
+  isLogging = false;
+  btnLog.textContent = 'Start logging';
+  btnDownload.disabled = logRows.length <= 1;
+  setStatus('Enregistrement stoppé.');
+}
+function downloadCSV(){
+  if (logRows.length <= 1) return;
+  const csv = logRows.join('\n') + '\n';
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().replace(/[:.]/g,'-');
+  a.href = url;
+  a.download = `FlightTest_${ts}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setStatus('CSV téléchargé ✅');
+}
+
 /* ---------- BLE handling ---------- */
 function parseMaybeNaN(tok){
   const t = String(tok ?? '').trim();
@@ -224,8 +272,6 @@ function handleNotif(event){
   let s = ''; for(let i=0;i<dv.byteLength;i++) s += String.fromCharCode(dv.getUint8(i));
   const line = s.trim().split(/\r?\n/).pop();
   const tok = line.split(';');
-
-  // Attend I;V;T1;T2 — mais tolère si T2 absent
   if (tok.length < 2) return;
 
   const I   = parseMaybeNaN(tok[0]);
@@ -252,6 +298,18 @@ function handleNotif(event){
   if (Number.isFinite(T2)) push(bufs.T2, T2);
   drawSparkline(ctxT1, bufs.T1);
   drawSparkline(ctxT2, bufs.T2);
+
+  // Enregistrement CSV si actif
+  if (isLogging) {
+    const row = [
+      nowIsoLocal(),
+      Number.isFinite(I)  ? I.toFixed(3)  : '',
+      Number.isFinite(V1) ? V1.toFixed(3) : '',
+      Number.isFinite(T1) ? T1.toFixed(1) : '',
+      Number.isFinite(T2) ? T2.toFixed(1) : ''
+    ].join(';');
+    logRows.push(row);
+  }
 }
 
 async function connect(){
@@ -309,7 +367,12 @@ function onDisconnected(){
 btnConnect.addEventListener('click', connect);
 btnDisconnect.addEventListener('click', disconnect);
 btnResetMM.addEventListener('click', resetMM);
-if (!('bluetooth' in navigator)){ setStatus('Web Bluetooth non supporté dans ce navigateur.'); }
+btnLog.addEventListener('click', () => isLogging ? stopLogging() : startLogging());
+btnDownload.addEventListener('click', downloadCSV);
+
+if (!('bluetooth' in navigator)){
+  setStatus('Web Bluetooth non supporté dans ce navigateur.');
+}
 resizeAll();
 </script>
 </body>
