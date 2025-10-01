@@ -23,7 +23,7 @@
     button:disabled{opacity:.55; cursor:not-allowed; box-shadow:none}
     .status{font-size:.9rem; color:var(--muted)}
     .opts{display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; padding:.5rem 1rem 0; max-width:1100px; margin:0 auto;}
-    input[type=text]{flex:1 1 240px; min-width:200px; padding:.6rem .75rem; border:1px solid var(--border); border-radius:.6rem; background:#fff; color:var(--fg);}
+    input[type=text], select{flex:1 1 240px; min-width:200px; padding:.6rem .75rem; border:1px solid var(--border); border-radius:.6rem; background:#fff; color:var(--fg);}
     label{font-size:.85rem; color:var(--muted); margin-right:.25rem}
     main{padding:1rem; max-width:1100px; margin:0 auto;}
     .grid{display:grid; gap:1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));}
@@ -40,6 +40,7 @@
       .controls button{flex:1}
       .opts{padding: .25rem 1rem .5rem}
       label{flex-basis:100%}
+      input[type=text], select{flex-basis:100%}
     }
   </style>
 </head>
@@ -63,6 +64,13 @@
       <input id="svc" type="text" value="4fafc201-1fb5-459e-8fcc-c5c9c331914b">
       <label for="chr">Characteristic</label>
       <input id="chr" type="text" value="beb5483e-36e1-4688-b7f5-ea07361b26a8">
+      <label for="selRate">Cadence log</label>
+      <select id="selRate">
+        <option value="100" selected>100 ms</option>
+        <option value="200">200 ms</option>
+        <option value="500">500 ms</option>
+        <option value="2000">2000 ms</option>
+      </select>
     </div>
   </header>
 
@@ -123,6 +131,7 @@ const btnCopyCsv = document.getElementById('btnCopyCsv');
 
 const svcInput = document.getElementById('svc');
 const chrInput = document.getElementById('chr');
+const selRate  = document.getElementById('selRate');
 
 const vI  = document.getElementById('valI');
 const vV1 = document.getElementById('valV1');
@@ -219,9 +228,11 @@ function drawSparkline(ctx, data){
   ctx.stroke();
 }
 
-/* ---------- Logging (CSV pour Excel) ---------- */
+/* ---------- Logging (CSV pour Excel) : TIMER FIXE ---------- */
 let isLogging = false;
 let logRows = []; // "timestamp;I_A;V_V;T1_C;T2_C"
+let logTimer = null;
+let lastSample = {I:NaN, V1:NaN, T1:NaN, T2:NaN, has:false};
 
 function nowIsoLocal(){
   const d = new Date();
@@ -244,11 +255,27 @@ function startLogging(){
   btnLog.textContent = 'Stop logging';
   setStatus('Enregistrement en cours…');
   refreshExportButtons();
+
+  const period = parseInt(selRate.value,10) || 1000;
+  if (logTimer) clearInterval(logTimer);
+  logTimer = setInterval(() => {
+    if (!isLogging || !lastSample.has) return;
+    const row = [
+      nowIsoLocal(),
+      Number.isFinite(lastSample.I)  ? lastSample.I.toFixed(3)  : '',
+      Number.isFinite(lastSample.V1) ? lastSample.V1.toFixed(3) : '',
+      Number.isFinite(lastSample.T1) ? lastSample.T1.toFixed(1) : '',
+      Number.isFinite(lastSample.T2) ? lastSample.T2.toFixed(1) : ''
+    ].join(';');
+    logRows.push(row);
+    refreshExportButtons();
+  }, period);
 }
 function stopLogging(){
   isLogging = false;
   btnLog.textContent = 'Start logging';
   setStatus('Enregistrement stoppé.');
+  if (logTimer) { clearInterval(logTimer); logTimer = null; }
   refreshExportButtons();
 }
 function downloadCSV(){
@@ -312,9 +339,9 @@ function parseMaybeNaN(tok){
 
 function handleNotif(event){
   const dv = event.target.value;
+  // Conversion DataView -> string ASCII rapide
   let s = ''; for(let i=0;i<dv.byteLength;i++) s += String.fromCharCode(dv.getUint8(i));
-  const line = s.trim().split(/\r?\n/).pop();
-  const tok = line.split(';');
+  const tok = s.split(';'); // trame "I;V;T1;T2"
   if (tok.length < 2) return;
 
   const I   = parseMaybeNaN(tok[0]);
@@ -322,6 +349,7 @@ function handleNotif(event){
   const T1  = parseMaybeNaN(tok[2]);
   const T2  = parseMaybeNaN(tok[3]);
 
+  // UI live
   vI.textContent  = fmt(I,3);
   vV1.textContent = fmt(V1,3);
   vT1.textContent = Number.isFinite(T1) ? fmt(T1,1) : '—';
@@ -339,17 +367,8 @@ function handleNotif(event){
   drawSparkline(ctxT1, bufs.T1);
   drawSparkline(ctxT2, bufs.T2);
 
-  if (isLogging) {
-    const row = [
-      nowIsoLocal(),
-      Number.isFinite(I)  ? I.toFixed(3)  : '',
-      Number.isFinite(V1) ? V1.toFixed(3) : '',
-      Number.isFinite(T1) ? T1.toFixed(1) : '',
-      Number.isFinite(T2) ? T2.toFixed(1) : ''
-    ].join(';');
-    logRows.push(row);
-    refreshExportButtons();
-  }
+  // Mémorise la dernière mesure pour le logger à cadence fixe
+  lastSample = {I, V1, T1, T2, has:true};
 }
 
 async function connect(){
@@ -405,6 +424,7 @@ function onDisconnected(){
   setStatus('Déconnecté.');
   btnConnect.disabled = false;
   btnDisconnect.disabled = true;
+  lastSample = {I:NaN, V1:NaN, T1:NaN, T2:NaN, has:false};
 }
 
 /* ---------- Init ---------- */
