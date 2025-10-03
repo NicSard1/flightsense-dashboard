@@ -234,6 +234,11 @@ let logRows = []; // "timestamp;I_A;V_V;T1_C;T2_C"
 let logTimer = null;
 let lastSample = {I:NaN, V1:NaN, T1:NaN, T2:NaN, has:false};
 
+function toFixedComma(n, d){
+  // "12.345" -> "12,345" ; "" si NaN
+  return Number.isFinite(n) ? n.toFixed(d).replace('.', ',') : '';
+}
+
 function nowIsoLocal(){
   const d = new Date();
   const tz = -d.getTimezoneOffset();
@@ -260,13 +265,15 @@ function startLogging(){
   if (logTimer) clearInterval(logTimer);
   logTimer = setInterval(() => {
     if (!isLogging || !lastSample.has) return;
+
     const row = [
       nowIsoLocal(),
-      Number.isFinite(lastSample.I)  ? lastSample.I.toFixed(3)  : '',
-      Number.isFinite(lastSample.V1) ? lastSample.V1.toFixed(3) : '',
-      Number.isFinite(lastSample.T1) ? lastSample.T1.toFixed(1) : '',
-      Number.isFinite(lastSample.T2) ? lastSample.T2.toFixed(1) : ''
+      toFixedComma(lastSample.I,  3),
+      toFixedComma(lastSample.V1, 3),
+      toFixedComma(lastSample.T1, 1),
+      toFixedComma(lastSample.T2, 1)
     ].join(';');
+
     logRows.push(row);
     refreshExportButtons();
   }, period);
