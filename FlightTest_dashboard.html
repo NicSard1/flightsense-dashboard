@@ -129,7 +129,7 @@
               <input id="devName" type="text" value="" title="Nom BLE exact (optionnel)">
 
               <label for="devPrefix">Préfixe</label>
-              <input id="devPrefix" type="text" value="" title="Préfixe du nom (namePrefix)">
+              <input id="devPrefix" type="text" value="FSM" title="Préfixe du nom (namePrefix)">
 
               <label for="svc">Service UUID</label>
               <input id="svc" type="text" value="4fafc201-1fb5-459e-8fcc-c5c9c331914b">
@@ -146,7 +146,7 @@
               </select>
 
               <div class="advHint">
-                Astuce : laisse “Nom exact” vide et utilise seulement le “Préfixe” pour éviter les erreurs.
+                Trame binaire attendue : [0]=0xA5, [1]=ver, puis I(mA int16), V(mV uint16), P(dW int16), T1(d°C int16), T2(d°C int16). (Little-endian)
               </div>
             </div>
           </div>
@@ -157,6 +157,13 @@
 
   <main>
     <div class="grid">
+      <div class="card">
+        <div class="label">Puissance (instantanée)</div>
+        <div class="value"><span id="valP">—</span><span class="unit">W</span></div>
+        <div class="minmax"><span class="k">Min</span><span id="minP">—</span>&nbsp;&nbsp;<span class="k">Max</span><span id="maxP">—</span></div>
+        <canvas id="plotP" class="spark"></canvas>
+      </div>
+
       <div class="card">
         <div class="label">Courant</div>
         <div class="value"><span id="valI">—</span><span class="unit">A</span></div>
@@ -169,13 +176,6 @@
         <div class="value"><span id="valV1">—</span><span class="unit">V</span></div>
         <div class="minmax"><span class="k">Min</span><span id="minV1">—</span>&nbsp;&nbsp;<span class="k">Max</span><span id="maxV1">—</span></div>
         <canvas id="plotV1" class="spark"></canvas>
-      </div>
-
-      <div class="card">
-        <div class="label">Puissance (instantanée)</div>
-        <div class="value"><span id="valP">—</span><span class="unit">W</span></div>
-        <div class="minmax"><span class="k">Min</span><span id="minP">—</span>&nbsp;&nbsp;<span class="k">Max</span><span id="maxP">—</span></div>
-        <canvas id="plotP" class="spark"></canvas>
       </div>
 
       <div class="card">
@@ -247,7 +247,7 @@ let device=null, server=null, characteristic=null;
 /* ---------- Helpers ---------- */
 function setStatus(t){ statusEl.textContent = t; }
 function fmt(v,d=2){ return Number.isFinite(v) ? v.toFixed(d) : '—'; }
-function setBleDot(colorCss){ if (bleDot) bleDot.style.background = colorCss; }
+function setBleDot(colorCss){ bleDot.style.background = colorCss; }
 
 function formatDateHeader(d = new Date()){
   const pad = n => String(n).padStart(2,'0');
@@ -317,7 +317,7 @@ function resizeAll(){
 window.addEventListener('resize', () => { clearTimeout(resizeAll._t); resizeAll._t=setTimeout(resizeAll, 120); });
 
 /* ---------- Sparklines ---------- */
-const BUFLEN = 180; // ajuste si besoin
+const BUFLEN = 180;
 const bufs = { I:[], V1:[], P:[], T1:[], T2:[] };
 function push(buf, val){ buf.push(val); if(buf.length>BUFLEN) buf.shift(); }
 function drawSparkline(ctx, data){
@@ -452,7 +452,6 @@ async function copyCSV(){
 
 /* ---------- RSSI via watchAdvertisements() ---------- */
 let advHandler = null;
-
 function updateRssi(rssi){
   valRSSI.textContent = Number.isFinite(rssi) ? String(Math.round(rssi)) : '—';
   if (!Number.isFinite(rssi)) setBleDot('var(--danger)');
@@ -460,26 +459,14 @@ function updateRssi(rssi){
   else if (rssi > -80) setBleDot('var(--warn)');
   else setBleDot('var(--danger)');
 }
-
 async function startRssiWatch(){
   updateRssi(NaN);
   if (!device) return;
-
-  if (!device.watchAdvertisements) {
-    console.warn("watchAdvertisements() not supported in this browser.");
-    return;
-  }
-
+  if (!device.watchAdvertisements) return;
   stopRssiWatch();
-
   advHandler = (event) => updateRssi(event.rssi);
   device.addEventListener('advertisementreceived', advHandler);
-
-  try{
-    await device.watchAdvertisements();
-  }catch(e){
-    console.warn("watchAdvertisements failed:", e);
-  }
+  try{ await device.watchAdvertisements(); }catch(e){ console.warn(e); }
 }
 function stopRssiWatch(){
   if (device && advHandler) device.removeEventListener('advertisementreceived', advHandler);
@@ -487,47 +474,72 @@ function stopRssiWatch(){
   updateRssi(NaN);
 }
 
-/* ---------- BLE parsing ---------- */
-function parseMaybeNaN(tok){
-  const t = String(tok ?? '').trim();
-  if (!t) return NaN;
-  if (t.toLowerCase() === 'nan') return NaN;
-  const v = parseFloat(t);
-  return Number.isFinite(v) ? v : NaN;
+/* ---------- BLE parsing (binary preferred; ASCII fallback) ---------- */
+function parseAsciiCsv(dv){
+  let s = '';
+  for(let i=0;i<dv.byteLength;i++) s += String.fromCharCode(dv.getUint8(i));
+  const tok = s.split(';').map(t => (t ?? '').trim());
+  const toNum = (x) => {
+    if (!x) return NaN;
+    if (x.toLowerCase() === 'nan') return NaN;
+    const v = parseFloat(x);
+    return Number.isFinite(v) ? v : NaN;
+  };
+  return { I: toNum(tok[0]), V1: toNum(tok[1]), P: toNum(tok[2]), T1: toNum(tok[3]), T2: toNum(tok[4]) };
+}
+
+function parseBinaryPacket(dv){
+  if (dv.byteLength < 12) return null;
+  const magic = dv.getUint8(0);
+  const ver   = dv.getUint8(1);
+  if (magic !== 0xA5 || ver !== 1) return null;
+
+  const I_mA  = dv.getInt16(2, true);
+  const V_mV  = dv.getUint16(4, true);
+  const P_dW  = dv.getInt16(6, true);
+  const T1_dC = dv.getInt16(8, true);
+  const T2_dC = dv.getInt16(10, true);
+
+  return {
+    I:  I_mA / 1000.0,
+    V1: V_mV / 1000.0,
+    P:  P_dW / 10.0,
+    T1: (T1_dC === -32768) ? NaN : (T1_dC / 10.0),
+    T2: (T2_dC === -32768) ? NaN : (T2_dC / 10.0),
+  };
 }
 
 function handleNotif(event){
   const dv = event.target.value;
-  let s = '';
-  for(let i=0;i<dv.byteLength;i++) s += String.fromCharCode(dv.getUint8(i));
-  const tok = s.split(';');
+  const m = parseBinaryPacket(dv) ?? parseAsciiCsv(dv);
 
-  // Attendu: I;V;P;T1;T2
-  const I  = parseMaybeNaN(tok[0]);
-  const V1 = parseMaybeNaN(tok[1]);
-  const P  = parseMaybeNaN(tok[2]);
-  const T1 = parseMaybeNaN(tok[3]);
-  const T2 = parseMaybeNaN(tok[4]);
+  const I  = m.I;
+  const V1 = m.V1;
+  const P  = m.P;
+  const T1 = m.T1;
+  const T2 = m.T2;
 
+  vP.textContent  = Number.isFinite(P)  ? fmt(P,1)  : '—';
   vI.textContent  = fmt(I,3);
   vV1.textContent = fmt(V1,3);
-  vP.textContent  = Number.isFinite(P)  ? fmt(P,1)  : '—';
   vT1.textContent = Number.isFinite(T1) ? fmt(T1,1) : '—';
   vT2.textContent = Number.isFinite(T2) ? fmt(T2,1) : '—';
 
+  updateMM('P', P);
   updateMM('I', I);
   updateMM('V1', V1);
-  if (Number.isFinite(P))  updateMM('P', P);
   if (Number.isFinite(T1)) updateMM('T1', T1);
   if (Number.isFinite(T2)) updateMM('T2', T2);
 
-  push(bufs.I, I);   drawSparkline(ctxI,  bufs.I);
-  push(bufs.V1, V1); drawSparkline(ctxV1, bufs.V1);
   if (Number.isFinite(P)) push(bufs.P, P);
-  drawSparkline(ctxP, bufs.P);
-
+  push(bufs.I, I);
+  push(bufs.V1, V1);
   if (Number.isFinite(T1)) push(bufs.T1, T1);
   if (Number.isFinite(T2)) push(bufs.T2, T2);
+
+  drawSparkline(ctxP, bufs.P);
+  drawSparkline(ctxI, bufs.I);
+  drawSparkline(ctxV1, bufs.V1);
   drawSparkline(ctxT1, bufs.T1);
   drawSparkline(ctxT2, bufs.T2);
 
@@ -537,11 +549,7 @@ function handleNotif(event){
 /* ---------- BLE connect/disconnect ---------- */
 async function connect(){
   try{
-    if (!('bluetooth' in navigator)) {
-      setStatus('Web Bluetooth non supporté. Utilise Chrome/Edge desktop.');
-      return;
-    }
-
+    if (!('bluetooth' in navigator)) { setStatus('Web Bluetooth non supporté.'); return; }
     btnConnect.disabled = true;
     setStatus('Scan BLE…');
 
@@ -551,17 +559,12 @@ async function connect(){
     const prefix      = devPrefixInput.value.trim();
 
     const filters = [];
-    if (exactName.length > 0) filters.push({ name: exactName });
-    else if (prefix.length > 0) filters.push({ namePrefix: prefix });
-    else filters.push({ namePrefix: "FSM" });
+    if (exactName) filters.push({ name: exactName });
+    else filters.push({ namePrefix: prefix || "FSM" });
 
-    device = await navigator.bluetooth.requestDevice({
-      filters,
-      optionalServices: [serviceUuid]
-    });
+    device = await navigator.bluetooth.requestDevice({ filters, optionalServices: [serviceUuid] });
 
     await startRssiWatch();
-
     device.addEventListener('gattserverdisconnected', onDisconnected);
 
     setStatus('Connexion GATT…');
@@ -591,26 +594,48 @@ async function connect(){
 }
 
 async function disconnect(){
+  // 1) Mise à jour UI IMMÉDIATE (clé)
+  setStatus('Déconnexion…');
+  setBleDot('var(--danger)');
+  btnDisconnect.disabled = true;
+  btnConnect.disabled = false;
+
+  // 2) Nettoyage local
+  stopRssiWatch();
+
   try{
     if (characteristic){
-      await characteristic.stopNotifications().catch(()=>{});
+      try{
+        await characteristic.stopNotifications();
+      }catch(e){}
       characteristic.removeEventListener('characteristicvaluechanged', handleNotif);
       characteristic = null;
     }
-    if (device && device.gatt?.connected) device.gatt.disconnect();
-  }finally{
-    onDisconnected();
+
+    if (device && device.gatt && device.gatt.connected){
+      device.gatt.disconnect();
+    }
+  }catch(e){
+    console.warn('Disconnect error:', e);
   }
+
+  // 3) Reset état applicatif (SANS attendre l’event)
+  server = null;
+  device = null;
+  lastSample = {I:NaN, V1:NaN, P:NaN, T1:NaN, T2:NaN, has:false};
+
+  setStatus('Déconnecté.');
 }
+
 
 function onDisconnected(){
   stopRssiWatch();
   setBleDot('var(--danger)');
-  setStatus('Déconnecté.');
+  setStatus('Déconnecté (radio).');
   btnConnect.disabled = false;
   btnDisconnect.disabled = true;
-  lastSample = {I:NaN, V1:NaN, P:NaN, T1:NaN, T2:NaN, has:false};
 }
+
 
 /* ---------- Init ---------- */
 btnConnect.addEventListener('click', connect);
@@ -621,9 +646,6 @@ btnDownload.addEventListener('click', downloadCSV);
 btnOpenCsv.addEventListener('click', openCSVInTab);
 btnCopyCsv.addEventListener('click', copyCSV);
 
-if (!('bluetooth' in navigator)){
-  setStatus('Web Bluetooth non supporté dans ce navigateur. Utilise Chrome/Edge desktop.');
-}
 resizeAll();
 </script>
 </body>
