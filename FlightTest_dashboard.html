@@ -23,6 +23,45 @@
     button:disabled{opacity:.55; cursor:not-allowed; box-shadow:none}
     .status{font-size:.9rem; color:var(--muted)}
     .opts{display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; padding:.5rem 1rem 0; max-width:1100px; margin:0 auto;}
+    .advMenu{ position: relative; }
+    .iconBtn{
+      min-width:auto;
+      padding:.55rem .75rem;
+      border-radius:.8rem;
+      font-weight:700;
+    }
+    .advPanel{
+      position:absolute;
+      right:0;
+      top:calc(100% + .5rem);
+      width:min(520px, calc(100vw - 2rem));
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+      box-shadow:var(--shadow);
+      padding:.75rem;
+      z-index:999;
+    }
+    .advTitle{
+      font-weight:800;
+      margin:.25rem .25rem .75rem;
+    }
+    .advPanel .opts{
+      padding:0;
+      margin:0;
+      max-width:none;
+    }
+    .advPanel input[type=text], .advPanel select{
+      flex:1 1 240px;
+      min-width:220px;
+    }
+    .advHint{
+      flex-basis:100%;
+      margin-top:.25rem;
+      font-size:.85rem;
+      color:var(--muted);
+      padding:.25rem;
+    }
     input[type=text], select{flex:1 1 240px; min-width:200px; padding:.6rem .75rem; border:1px solid var(--border); border-radius:.6rem; background:#fff; color:var(--fg);}
     label{font-size:.85rem; color:var(--muted); margin-right:.25rem}
     main{padding:1rem; max-width:1100px; margin:0 auto;}
@@ -34,6 +73,25 @@
     .spark{width:100%; height:110px; display:block; margin-top:.6rem;}
     .minmax{margin-top:.35rem; font-size:.9rem; color:var(--muted)}
     .minmax .k{font-weight:600; color:#334155; margin-right:.25rem}
+    .quick{
+      display:flex;
+      align-items:center;
+      gap:.4rem;
+    }
+    .quick label{
+      color:var(--muted);
+      font-size:.85rem;
+      margin:0;
+    }
+    .quick select{
+      padding:.45rem .6rem;
+      border:1px solid var(--border);
+      border-radius:.6rem;
+      background:#fff;
+      color:var(--fg);
+      min-width:120px;
+    }
+
     @media (max-width:480px){
       .value{font-size:2rem}
       .controls{width:100%}
@@ -58,19 +116,50 @@
         <button id="btnCopyCsv" disabled>Copier CSV</button>
       </div>
       <div class="status" id="status">Prêt.</div>
-    </div>
-    <div class="opts">
-      <label for="svc">Service</label>
-      <input id="svc" type="text" value="4fafc201-1fb5-459e-8fcc-c5c9c331914b">
-      <label for="chr">Characteristic</label>
-      <input id="chr" type="text" value="beb5483e-36e1-4688-b7f5-ea07361b26a8">
-      <label for="selRate">Cadence log</label>
-      <select id="selRate">
-        <option value="100" selected>100 ms</option>
-        <option value="200">200 ms</option>
-        <option value="500">500 ms</option>
-        <option value="2000">2000 ms</option>
-      </select>
+      <div class="quick">
+        <label for="droneTypeQuick">Drone</label>
+        <select id="droneTypeQuick" title="Type de drone testé">
+          <option value="USA">USA</option>
+          <option value="UKR">UKR</option>
+          <option value="TEAL">TEAL</option>
+          <option value="Autre">Autre</option>
+        </select>
+      </div>
+      <div class="advMenu">
+        <button id="btnAdv" class="iconBtn" aria-haspopup="true" aria-expanded="false" title="Paramètres avancés">
+          ⚙️
+        </button>
+
+        <div id="advPanel" class="advPanel" hidden>
+          <div class="advTitle">Paramètres avancés</div>
+
+          <div class="opts">
+            <label for="devName">Nom exact</label>
+            <input id="devName" type="text" value="FSM Arastelle" title="Nom BLE exact (optionnel)">
+
+            <label for="devPrefix">Préfixe</label>
+            <input id="devPrefix" type="text" value="FSM" title="Préfixe du nom BLE (namePrefix)">
+
+            <label for="svc">Service UUID</label>
+            <input id="svc" type="text" value="4fafc201-1fb5-459e-8fcc-c5c9c331914b">
+
+            <label for="chr">Characteristic UUID</label>
+            <input id="chr" type="text" value="beb5483e-36e1-4688-b7f5-ea07361b26a8">
+
+            <label for="selRate">Cadence log</label>
+            <select id="selRate">
+              <option value="100">100 ms</option>
+              <option value="200" selected>200 ms</option>
+              <option value="500">500 ms</option>
+              <option value="2000">2000 ms</option>
+            </select>
+
+            <div class="advHint">
+              Astuce : laisse “Nom exact” vide et utilise seulement le “Préfixe” pour éviter les erreurs.
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -96,7 +185,6 @@
         <canvas id="plotV1" class="spark"></canvas>
       </div>
 
-
       <div class="card">
         <div class="label">Puissance (instantanée)</div>
         <div class="value"><span id="valP">—</span><span class="unit">W</span></div>
@@ -106,17 +194,6 @@
         </div>
         <canvas id="plotP" class="spark"></canvas>
       </div>
-
-      <div class="card">
-        <div class="label">Puissance (moyenne)</div>
-        <div class="value"><span id="valPavg">—</span><span class="unit">W</span></div>
-        <div class="minmax">
-          <span class="k">Min</span><span id="minPavg">—</span>
-          &nbsp;&nbsp;<span class="k">Max</span><span id="maxPavg">—</span>
-        </div>
-        <canvas id="plotPavg" class="spark"></canvas>
-      </div>
-
 
       <div class="card">
         <div class="label">Température T1</div>
@@ -150,7 +227,11 @@ const btnLog = document.getElementById('btnLog');
 const btnDownload = document.getElementById('btnDownload');
 const btnOpenCsv = document.getElementById('btnOpenCsv');
 const btnCopyCsv = document.getElementById('btnCopyCsv');
+const btnAdv   = document.getElementById('btnAdv');
+const advPanel = document.getElementById('advPanel');
 
+const devNameInput   = document.getElementById('devName');
+const devPrefixInput = document.getElementById('devPrefix');
 const svcInput = document.getElementById('svc');
 const chrInput = document.getElementById('chr');
 const selRate  = document.getElementById('selRate');
@@ -158,7 +239,6 @@ const selRate  = document.getElementById('selRate');
 const vI  = document.getElementById('valI');
 const vV1 = document.getElementById('valV1');
 const vP  = document.getElementById('valP');
-const vPavg = document.getElementById('valPavg');
 const vT1 = document.getElementById('valT1');
 const vT2 = document.getElementById('valT2');
 
@@ -168,8 +248,6 @@ const minV1 = document.getElementById('minV1');
 const maxV1 = document.getElementById('maxV1');
 const minP = document.getElementById('minP');
 const maxP = document.getElementById('maxP');
-const minPavg = document.getElementById('minPavg');
-const maxPavg = document.getElementById('maxPavg');
 const minT1 = document.getElementById('minT1');
 const maxT1 = document.getElementById('maxT1');
 const minT2 = document.getElementById('minT2');
@@ -178,14 +256,19 @@ const maxT2 = document.getElementById('maxT2');
 const canvI  = document.getElementById('plotI');
 const canvV1 = document.getElementById('plotV1');
 const canvP  = document.getElementById('plotP');
-const canvPavg = document.getElementById('plotPavg');
 const canvT1 = document.getElementById('plotT1');
 const canvT2 = document.getElementById('plotT2');
 
-let ctxI, ctxV1, ctxP, ctxPavg, ctxT1, ctxT2;
+let ctxI, ctxV1, ctxP, ctxT1, ctxT2;
 let device=null, server=null, characteristic=null;
 
 /* ---------- Helpers ---------- */
+function formatDateHeader(d = new Date()){
+  const pad = n => String(n).padStart(2,'0');
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+
 function setStatus(t){ statusEl.textContent = t; }
 function fmt(v,d=2){ return Number.isFinite(v) ? v.toFixed(d) : '—'; }
 
@@ -194,7 +277,6 @@ const mm = {
   I:    {min: +Infinity, max: -Infinity, d:3},
   V1:   {min: +Infinity, max: -Infinity, d:3},
   P:    {min: +Infinity, max: -Infinity, d:1},
-  Pavg: {min: +Infinity, max: -Infinity, d:1},
   T1:   {min: +Infinity, max: -Infinity, d:1},
   T2:   {min: +Infinity, max: -Infinity, d:1},
 };
@@ -206,7 +288,6 @@ function updateMM(key, val){
   if (key==='I')  { minI.textContent  = fmt(s.min, s.d); maxI.textContent  = fmt(s.max, s.d); }
   if (key==='V1') { minV1.textContent = fmt(s.min, s.d); maxV1.textContent = fmt(s.max, s.d); }
   if (key==='P') { minP.textContent = fmt(s.min, s.d); maxP.textContent = fmt(s.max, s.d); }
-  if (key==='Pavg') { minPavg.textContent = fmt(s.min, s.d); maxPavg.textContent = fmt(s.max, s.d); }
   if (key==='T1') { minT1.textContent = fmt(s.min, s.d); maxT1.textContent = fmt(s.max, s.d); }
   if (key==='T2') { minT2.textContent = fmt(s.min, s.d); maxT2.textContent = fmt(s.max, s.d); }
 }
@@ -215,7 +296,6 @@ function resetMM(){
   minI.textContent = maxI.textContent = '—';
   minV1.textContent = maxV1.textContent = '—';
   minP.textContent = maxP.textContent = '—';
-  minPavg.textContent = maxPavg.textContent = '—';
   minT1.textContent = maxT1.textContent = '—';
   minT2.textContent = maxT2.textContent = '—';
 }
@@ -235,13 +315,11 @@ function resizeAll(){
   ctxI  = fitCanvas(canvI);
   ctxV1 = fitCanvas(canvV1);
   ctxP  = fitCanvas(canvP);
-  ctxPavg = fitCanvas(canvPavg);
   ctxT1 = fitCanvas(canvT1);
   ctxT2 = fitCanvas(canvT2);
   drawSparkline(ctxI,  bufs.I);
   drawSparkline(ctxV1, bufs.V1);
   drawSparkline(ctxP,  bufs.P);
-  drawSparkline(ctxPavg, bufs.Pavg);
   drawSparkline(ctxT1, bufs.T1);
   drawSparkline(ctxT2, bufs.T2);
 }
@@ -249,7 +327,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeAll._t); resizeAll.
 
 /* Tiny sparkline */
 const BUFLEN = 180;
-const bufs = { I:[], V1:[], P:[], Pavg:[], T1:[], T2:[] };
+const bufs = { I:[], V1:[], P:[], T1:[], T2:[] };
 function push(buf, val){ buf.push(val); if(buf.length>BUFLEN) buf.shift(); }
 function drawSparkline(ctx, data){
   const W = ctx.canvas.clientWidth, H = ctx.canvas.clientHeight;
@@ -270,15 +348,13 @@ function drawSparkline(ctx, data){
 
 /* ---------- Logging (CSV pour Excel) : TIMER FIXE ---------- */
 let isLogging = false;
-let logRows = []; // "timestamp;I_A;V_V;T1_C;T2_C"
+let logRows = [];
 let logTimer = null;
-let lastSample = {I:NaN, V1:NaN, P:NaN, Pavg:NaN, T1:NaN, T2:NaN, has:false};
+let lastSample = {I:NaN, V1:NaN, P:NaN, T1:NaN, T2:NaN, has:false};
 
 function toFixedComma(n, d){
-  // "12.345" -> "12,345" ; "" si NaN
   return Number.isFinite(n) ? n.toFixed(d).replace('.', ',') : '';
 }
-
 function nowIsoLocal(){
   const d = new Date();
   const tz = -d.getTimezoneOffset();
@@ -294,8 +370,23 @@ function refreshExportButtons(){
   btnCopyCsv.disabled  = !hasData;
 }
 function startLogging(){
+  document.getElementById('droneTypeQuick').disabled = true;
   logRows = [];
-  logRows.push(['timestamp','I_A','V_V','P_W','Pavg_W','T1_C','T2_C'].join(';'));
+
+  logRows.push("# FlightTest FSM");
+  logRows.push("# Date: " + formatDateHeader());
+
+  // Drone pris depuis le sélecteur visible (page d'accueil)
+  const drone = document.getElementById('droneTypeQuick').value;
+  logRows.push("# Drone: " + drone);
+
+  // (optionnel mais propre)
+  logRows.push("# DeviceName: " + (device?.name || "N/A"));
+  logRows.push("");
+
+  logRows.push("timestamp;I_A;V_V;P_W;T1_C;T2_C");
+
+
   isLogging = true;
   btnLog.textContent = 'Stop logging';
   setStatus('Enregistrement en cours…');
@@ -311,7 +402,6 @@ function startLogging(){
       toFixedComma(lastSample.I,    3),
       toFixedComma(lastSample.V1,   3),
       toFixedComma(lastSample.P,    1),
-      toFixedComma(lastSample.Pavg, 1),
       toFixedComma(lastSample.T1,   1),
       toFixedComma(lastSample.T2,   1)
     ].join(';');
@@ -322,6 +412,7 @@ function startLogging(){
 }
 function stopLogging(){
   isLogging = false;
+  document.getElementById('droneTypeQuick').disabled = false;
   btnLog.textContent = 'Start logging';
   setStatus('Enregistrement stoppé.');
   if (logTimer) { clearInterval(logTimer); logTimer = null; }
@@ -341,7 +432,7 @@ function downloadCSV(){
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    setStatus('CSV téléchargé ✅');
+    setStatus('CSV téléchargé');
   }catch(e){
     setStatus('Téléchargement non supporté ici.');
   }
@@ -362,7 +453,7 @@ async function copyCSV(){
   try{
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(csv);
-      setStatus('CSV copié dans le presse-papiers ✅');
+      setStatus('CSV copié dans le presse-papiers ');
     } else {
       const ta = document.createElement('textarea');
       ta.value = csv;
@@ -370,12 +461,40 @@ async function copyCSV(){
       ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
-      setStatus('CSV copié ✅');
+      setStatus('CSV copié ');
     }
   }catch(e){
     setStatus('Impossible de copier. Utilise “Ouvrir CSV”.');
   }
 }
+
+function openAdv(){
+  advPanel.hidden = false;
+  btnAdv.setAttribute('aria-expanded', 'true');
+}
+
+function closeAdv(){
+  advPanel.hidden = true;
+  btnAdv.setAttribute('aria-expanded', 'false');
+}
+
+btnAdv.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if (advPanel.hidden) openAdv(); else closeAdv();
+});
+
+// click en dehors => ferme
+document.addEventListener('click', (e)=>{
+  if (!advPanel.hidden) closeAdv();
+});
+
+// click dans le panel => ne ferme pas
+advPanel.addEventListener('click', (e)=> e.stopPropagation());
+
+// ESC => ferme
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && !advPanel.hidden) closeAdv();
+});
 
 /* ---------- BLE handling ---------- */
 function parseMaybeNaN(tok){
@@ -388,43 +507,37 @@ function parseMaybeNaN(tok){
 
 function handleNotif(event){
   const dv = event.target.value;
-  // Conversion DataView -> string ASCII rapide
   let s = ''; for(let i=0;i<dv.byteLength;i++) s += String.fromCharCode(dv.getUint8(i));
   const tok = s.split(';');
 
-  // Nouveau format (ESP-IDF): I;V;P;Pavg;T1;T2
-  // Ancien format:           I;V;T1;T2
-  let I=NaN, V1=NaN, P=NaN, Pavg=NaN, T1=NaN, T2=NaN;
+  let I=NaN, V1=NaN, P=NaN, T1=NaN, T2=NaN;
 
-  if (tok.length >= 6) {
-    I    = parseMaybeNaN(tok[0]);
-    V1   = parseMaybeNaN(tok[1]);
-    P    = parseMaybeNaN(tok[2]);
-    Pavg = parseMaybeNaN(tok[3]);
-    T1   = parseMaybeNaN(tok[4]);
-    T2   = parseMaybeNaN(tok[5]);
-  } else if (tok.length >= 4) {
+  if (tok.length >= 5) {
     I  = parseMaybeNaN(tok[0]);
     V1 = parseMaybeNaN(tok[1]);
-    T1 = parseMaybeNaN(tok[2]);
-    T2 = parseMaybeNaN(tok[3]);
+    P  = parseMaybeNaN(tok[2]);
+    T1 = parseMaybeNaN(tok[3]);
+    T2 = parseMaybeNaN(tok[4]);
+  }
+ else if (tok.length >= 4) {
+    I  = parseMaybeNaN(tok[0]);
+    V1 = parseMaybeNaN(tok[1]);
+    T1 = parseMaybeNaN(tok[3]);
+    T2 = parseMaybeNaN(tok[4]);
     if (Number.isFinite(I) && Number.isFinite(V1)) P = I * V1;
   } else {
     return;
   }
 
-  // UI live
   vI.textContent  = fmt(I,3);
   vV1.textContent = fmt(V1,3);
   vP.textContent  = Number.isFinite(P) ? fmt(P,1) : '—';
-  vPavg.textContent = Number.isFinite(Pavg) ? fmt(Pavg,1) : '—';
   vT1.textContent = Number.isFinite(T1) ? fmt(T1,1) : '—';
   vT2.textContent = Number.isFinite(T2) ? fmt(T2,1) : '—';
 
   updateMM('I', I);
   updateMM('V1', V1);
   if (Number.isFinite(P))    updateMM('P', P);
-  if (Number.isFinite(Pavg)) updateMM('Pavg', Pavg);
   if (Number.isFinite(T1))   updateMM('T1', T1);
   if (Number.isFinite(T2))   updateMM('T2', T2);
 
@@ -432,33 +545,48 @@ function handleNotif(event){
   push(bufs.V1, V1);   drawSparkline(ctxV1, bufs.V1);
 
   if (Number.isFinite(P))    push(bufs.P, P);
-  if (Number.isFinite(Pavg)) push(bufs.Pavg, Pavg);
   drawSparkline(ctxP,    bufs.P);
-  drawSparkline(ctxPavg, bufs.Pavg);
 
   if (Number.isFinite(T1)) push(bufs.T1, T1);
   if (Number.isFinite(T2)) push(bufs.T2, T2);
   drawSparkline(ctxT1, bufs.T1);
   drawSparkline(ctxT2, bufs.T2);
 
-  // Mémorise la dernière mesure pour le logger à cadence fixe
-  lastSample = {I, V1, P, Pavg, T1, T2, has:true};
+  lastSample = {I, V1, P, T1, T2, has:true};
 }
 
+/* Nouveau connect : filtre uniquement par NOM (exact ou prefix) */
 async function connect(){
   try{
     if (!('bluetooth' in navigator)) {
       setStatus('Web Bluetooth non supporté ici. Sur iOS, utilise Bluefy/WebBLE. Sur desktop, Chrome/Edge.');
       return;
     }
-    btnConnect.disabled = true; setStatus('Scan BLE…');
+    btnConnect.disabled = true;
+    setStatus('Scan BLE (filtre par nom)…');
+
     const serviceUuid = svcInput.value.trim();
     const charUuid    = chrInput.value.trim();
 
+    const exactName = devNameInput.value.trim();
+    const prefix    = devPrefixInput.value.trim();
+
+    // Priorité : nom exact si renseigné, sinon prefix
+    const filters = [];
+    if (exactName.length > 0) filters.push({ name: exactName });
+    else if (prefix.length > 0) filters.push({ namePrefix: prefix });
+    else filters.push({ namePrefix: "FSM" }); // fallback sûr
+
     device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
+      filters,
       optionalServices:[serviceUuid]
     });
+
+    // Garde-fou : si tu as mis un nom exact, on refuse tout autre device
+    if (exactName.length > 0 && device.name !== exactName) {
+      throw new Error(`Mauvais device sélectionné (${device.name}). Attendu: ${exactName}`);
+    }
+
     device.addEventListener('gattserverdisconnected', onDisconnected);
 
     setStatus('Connexion GATT…');
@@ -474,14 +602,16 @@ async function connect(){
     await characteristic.startNotifications();
     characteristic.addEventListener('characteristicvaluechanged', handleNotif);
 
-    setStatus('Connecté & abonné ✅');
+    setStatus(`Connecté à "${device.name}" `);
     btnDisconnect.disabled = false;
+
   }catch(e){
     console.error(e);
     setStatus('Erreur: '+ e.message);
     btnConnect.disabled = false;
   }
 }
+
 async function disconnect(){
   try{
     if (characteristic){
@@ -498,7 +628,7 @@ function onDisconnected(){
   setStatus('Déconnecté.');
   btnConnect.disabled = false;
   btnDisconnect.disabled = true;
-  lastSample = {I:NaN, V1:NaN, T1:NaN, T2:NaN, has:false};
+  lastSample = {I:NaN, V1:NaN, P:NaN, T1:NaN, T2:NaN, has:false};
 }
 
 /* ---------- Init ---------- */
