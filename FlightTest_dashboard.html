@@ -492,22 +492,43 @@ function parseBinaryPacket(dv){
   if (dv.byteLength < 12) return null;
   const magic = dv.getUint8(0);
   const ver   = dv.getUint8(1);
-  if (magic !== 0xA5 || ver !== 1) return null;
+  if (magic !== 0xA5) return null;
 
-  const I_mA  = dv.getInt16(2, true);
-  const V_mV  = dv.getUint16(4, true);
-  const P_dW  = dv.getInt16(6, true);
-  const T1_dC = dv.getInt16(8, true);
-  const T2_dC = dv.getInt16(10, true);
+  // v1 (12B) : I int16, V uint16 mV, P int16 dW, T1/T2 int16 dC
+  if (ver === 1 && dv.byteLength >= 12){
+    const I_mA  = dv.getInt16(2, true);
+    const V_mV  = dv.getUint16(4, true);
+    const P_dW  = dv.getInt16(6, true);
+    const T1_dC = dv.getInt16(8, true);
+    const T2_dC = dv.getInt16(10, true);
+    return {
+      I:  I_mA / 1000.0,
+      V1: V_mV / 1000.0,
+      P:  P_dW / 10.0,
+      T1: (T1_dC === -32768) ? NaN : (T1_dC / 10.0),
+      T2: (T2_dC === -32768) ? NaN : (T2_dC / 10.0),
+    };
+  }
 
-  return {
-    I:  I_mA / 1000.0,
-    V1: V_mV / 1000.0,
-    P:  P_dW / 10.0,
-    T1: (T1_dC === -32768) ? NaN : (T1_dC / 10.0),
-    T2: (T2_dC === -32768) ? NaN : (T2_dC / 10.0),
-  };
+  // v3 (16B) : I int16 mA, V int32 mV, P int32 mW, T1/T2 int16 dC
+  if (ver === 3 && dv.byteLength >= 16){
+    const I_mA  = dv.getInt16(2, true);
+    const V_mV  = dv.getInt32(4, true);
+    const P_mW  = dv.getInt32(8, true);
+    const T1_dC = dv.getInt16(12, true);
+    const T2_dC = dv.getInt16(14, true);
+    return {
+      I:  I_mA / 1000.0,
+      V1: V_mV / 1000.0,
+      P:  P_mW / 1000.0,
+      T1: (T1_dC === -32768) ? NaN : (T1_dC / 10.0),
+      T2: (T2_dC === -32768) ? NaN : (T2_dC / 10.0),
+    };
+  }
+
+  return null;
 }
+
 
 function handleNotif(event){
   const dv = event.target.value;
