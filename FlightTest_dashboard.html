@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <title>ARASTELLE FlightTest Dashboard – BLE</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
+  <head>
+    <meta charset="UTF-8" />
+    <title>ARASTELLE FlightTest Dashboard – BLE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
     :root{
       --bg:#ffffff; --fg:#0f172a; --muted:#5b667a;
       --brand:#0a7cff; --ok:#10b981; --warn:#f59e0b; --danger:#ef4444;
@@ -29,6 +29,14 @@
 
     main{padding:1rem; max-width:1100px; margin:0 auto;}
     .grid{display:grid; gap:1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));}
+    .gridTop{grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));}
+    .gridTemp{ margin-top: 1rem;grid-template-columns: repeat(2, minmax(220px, 1fr));}
+
+    /* Sur mobile : on repasse en 1 colonne */
+    @media (max-width: 520px){
+      .gridTemp{ grid-template-columns: 1fr; }
+    }
+
     .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:1rem; box-shadow:var(--shadow);}
     .label{font-size:.85rem; color:var(--muted);}
     .value{font-size:2.2rem; font-weight:800; line-height:1.1; margin-top:.35rem;}
@@ -83,118 +91,147 @@
       input[type=text], select{flex-basis:100%}
     }
   </style>
-</head>
-<body>
-  <header>
-    <div class="bar">
-      <div class="brand">ARASTELLE FlightTest – Dashboard</div>
+  </head>
+  <body>
+    <header>
+      <div class="bar">
+        <div class="brand">ARASTELLE FlightTest – Dashboard</div>
 
-      <div class="controls">
-        <button id="btnConnect" class="primary">Connect BLE</button>
-        <button id="btnDisconnect" disabled>Disconnect</button>
-        <button id="btnResetMM" title="Réinitialiser min/max">Reset min/max</button>
-        <button id="btnLog" title="Start/Stop enregistrement">Start logging</button>
-        <button id="btnDownload" disabled>Télécharger CSV</button>
-        <button id="btnOpenCsv" disabled>Ouvrir CSV</button>
-        <button id="btnCopyCsv" disabled>Copier CSV</button>
-      </div>
-
-      <div class="topRight">
-        <div class="badgeRow">
-          <div class="quick">
-            <label for="droneTypeQuick">Drone</label>
-            <select id="droneTypeQuick" title="Type de drone testé">
-              <option value="USA">USA</option>
-              <option value="UKR">UKR</option>
-              <option value="TEAL">TEAL</option>
-              <option value="Autre">Autre</option>
-            </select>
-          </div>
-
-          <div class="pill" title="Statut BLE + RSSI (via advertising, si supporté)">
-            <span class="dot" id="bleDot"></span>
-            <span id="status">Prêt.</span>
-            <span class="sep">|</span>
-            <span class="k">RSSI</span>
-            <span id="valRSSI">—</span><span class="unitSmall">dBm</span>
-          </div>
+        <div class="controls">
+          <button id="btnConnect" class="primary">Connect BLE</button>
+          <button id="btnDisconnect" disabled>Disconnect</button>
+          <button id="btnResetMM" title="Réinitialiser min/max">Reset
+            min/max</button>
+          <button id="btnLog" title="Start/Stop enregistrement">Start
+            logging</button>
+          <button id="btnDownload" disabled>Télécharger CSV</button>
+          <button id="btnOpenCsv" disabled>Ouvrir CSV</button>
+          <button id="btnCopyCsv" disabled>Copier CSV</button>
         </div>
 
-        <div class="advMenu">
-          <button id="btnAdv" class="iconBtn" aria-haspopup="true" aria-expanded="false" title="Paramètres avancés">⚙️</button>
-          <div id="advPanel" class="advPanel" hidden>
-            <div class="advTitle">Paramètres avancés</div>
-            <div class="opts">
-              <label for="devName">Nom exact</label>
-              <input id="devName" type="text" value="" title="Nom BLE exact (optionnel)">
-
-              <label for="devPrefix">Préfixe</label>
-              <input id="devPrefix" type="text" value="FSM" title="Préfixe du nom (namePrefix)">
-
-              <label for="svc">Service UUID</label>
-              <input id="svc" type="text" value="4fafc201-1fb5-459e-8fcc-c5c9c331914b">
-
-              <label for="chr">Characteristic UUID</label>
-              <input id="chr" type="text" value="beb5483e-36e1-4688-b7f5-ea07361b26a8">
-
-              <label for="selRate">Cadence log</label>
-              <select id="selRate">
-                <option value="100">100 ms</option>
-                <option value="200" selected>200 ms</option>
-                <option value="500">500 ms</option>
-                <option value="2000">2000 ms</option>
+        <div class="topRight">
+          <div class="badgeRow">
+            <div class="quick">
+              <label for="droneTypeQuick">Drone</label>
+              <select id="droneTypeQuick" title="Type de drone testé">
+                <option value="USA">USA</option>
+                <option value="UKR">UKR</option>
+                <option value="TEAL">TEAL</option>
+                <option value="Autre">Autre</option>
               </select>
+            </div>
 
-              <div class="advHint">
-                Trame binaire attendue : [0]=0xA5, [1]=ver, puis I(mA int16), V(mV uint16), P(dW int16), T1(d°C int16), T2(d°C int16). (Little-endian)
+            <div class="pill"
+              title="Statut BLE + RSSI (via advertising, si supporté)">
+              <span class="dot" id="bleDot"></span>
+              <span id="status">Prêt.</span>
+              <span class="sep">|</span>
+              <span class="k">RSSI</span>
+              <span id="valRSSI">—</span><span class="unitSmall">dBm</span>
+            </div>
+          </div>
+
+          <div class="advMenu">
+            <button id="btnAdv" class="iconBtn" aria-haspopup="true"
+              aria-expanded="false" title="Paramètres avancés">⚙️</button>
+            <div id="advPanel" class="advPanel" hidden>
+              <div class="advTitle">Paramètres avancés</div>
+              <div class="opts">
+                <label for="devName">Nom exact</label>
+                <input id="devName" type="text" value
+                  title="Nom BLE exact (optionnel)">
+
+                <label for="devPrefix">Préfixe</label>
+                <input id="devPrefix" type="text" value="FSM"
+                  title="Préfixe du nom (namePrefix)">
+
+                <label for="svc">Service UUID</label>
+                <input id="svc" type="text"
+                  value="4fafc201-1fb5-459e-8fcc-c5c9c331914b">
+
+                <label for="chr">Characteristic UUID</label>
+                <input id="chr" type="text"
+                  value="beb5483e-36e1-4688-b7f5-ea07361b26a8">
+
+                <label for="selRate">Cadence log</label>
+                <select id="selRate">
+                  <option value="100">100 ms</option>
+                  <option value="200" selected>200 ms</option>
+                  <option value="500">500 ms</option>
+                  <option value="2000">2000 ms</option>
+                </select>
+
+                <div class="advHint">
+                  Trame binaire attendue : [0]=0xA5, [1]=ver, puis I(mA int16),
+                  V(mV uint16), P(dW int16), T1(d°C int16), T2(d°C int16).
+                  (Little-endian)
+                </div>
               </div>
             </div>
           </div>
+        </div><!-- /topRight -->
+      </div><!-- /bar -->
+    </header>
+
+    <main>
+      <!-- Ligne 1 -->
+      <div class="grid gridTop">
+        <div class="card">
+          <div class="label">Puissance (instantanée)</div>
+          <div class="value"><span id="valP">—</span><span
+              class="unit">W</span></div>
+          <div class="minmax"><span class="k">Min</span><span
+              id="minP">—</span>&nbsp;&nbsp;<span class="k">Max</span><span
+              id="maxP">—</span></div>
+          <canvas id="plotP" class="spark"></canvas>
         </div>
-      </div><!-- /topRight -->
-    </div><!-- /bar -->
-  </header>
 
-  <main>
-    <div class="grid">
-      <div class="card">
-        <div class="label">Puissance (instantanée)</div>
-        <div class="value"><span id="valP">—</span><span class="unit">W</span></div>
-        <div class="minmax"><span class="k">Min</span><span id="minP">—</span>&nbsp;&nbsp;<span class="k">Max</span><span id="maxP">—</span></div>
-        <canvas id="plotP" class="spark"></canvas>
+        <div class="card">
+          <div class="label">Courant</div>
+          <div class="value"><span id="valI">—</span><span
+              class="unit">A</span></div>
+          <div class="minmax"><span class="k">Min</span><span
+              id="minI">—</span>&nbsp;&nbsp;<span class="k">Max</span><span
+              id="maxI">—</span></div>
+          <canvas id="plotI" class="spark"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="label">Tension (Vin)</div>
+          <div class="value"><span id="valV1">—</span><span
+              class="unit">V</span></div>
+          <div class="minmax"><span class="k">Min</span><span
+              id="minV1">—</span>&nbsp;&nbsp;<span class="k">Max</span><span
+              id="maxV1">—</span></div>
+          <canvas id="plotV1" class="spark"></canvas>
+        </div>
       </div>
 
-      <div class="card">
-        <div class="label">Courant</div>
-        <div class="value"><span id="valI">—</span><span class="unit">A</span></div>
-        <div class="minmax"><span class="k">Min</span><span id="minI">—</span>&nbsp;&nbsp;<span class="k">Max</span><span id="maxI">—</span></div>
-        <canvas id="plotI" class="spark"></canvas>
-      </div>
+      <!-- Ligne 2 : Températures côte à côte -->
+      <div class="grid gridTemp">
+        <div class="card">
+          <div class="label">Température (FSM)</div>
+          <div class="value"><span id="valT1">—</span><span
+              class="unit">°C</span></div>
+          <div class="minmax"><span class="k">Min</span><span
+              id="minT1">—</span>&nbsp;&nbsp;<span class="k">Max</span><span
+              id="maxT1">—</span></div>
+          <canvas id="plotT1" class="spark"></canvas>
+        </div>
 
-      <div class="card">
-        <div class="label">Tension (V1)</div>
-        <div class="value"><span id="valV1">—</span><span class="unit">V</span></div>
-        <div class="minmax"><span class="k">Min</span><span id="minV1">—</span>&nbsp;&nbsp;<span class="k">Max</span><span id="maxV1">—</span></div>
-        <canvas id="plotV1" class="spark"></canvas>
+        <div class="card">
+          <div class="label">Température (sonde)</div>
+          <div class="value"><span id="valT2">—</span><span
+              class="unit">°C</span></div>
+          <div class="minmax"><span class="k">Min</span><span
+              id="minT2">—</span>&nbsp;&nbsp;<span class="k">Max</span><span
+              id="maxT2">—</span></div>
+          <canvas id="plotT2" class="spark"></canvas>
+        </div>
       </div>
+    </main>
 
-      <div class="card">
-        <div class="label">Température T1</div>
-        <div class="value"><span id="valT1">—</span><span class="unit">°C</span></div>
-        <div class="minmax"><span class="k">Min</span><span id="minT1">—</span>&nbsp;&nbsp;<span class="k">Max</span><span id="maxT1">—</span></div>
-        <canvas id="plotT1" class="spark"></canvas>
-      </div>
-
-      <div class="card">
-        <div class="label">Température T2</div>
-        <div class="value"><span id="valT2">—</span><span class="unit">°C</span></div>
-        <div class="minmax"><span class="k">Min</span><span id="minT2">—</span>&nbsp;&nbsp;<span class="k">Max</span><span id="maxT2">—</span></div>
-        <canvas id="plotT2" class="spark"></canvas>
-      </div>
-    </div>
-  </main>
-
-<script>
+    <script>
 const statusEl = document.getElementById('status');
 const btnConnect = document.getElementById('btnConnect');
 const btnDisconnect = document.getElementById('btnDisconnect');
@@ -669,5 +706,5 @@ btnCopyCsv.addEventListener('click', copyCSV);
 
 resizeAll();
 </script>
-</body>
+  </body>
 </html>
