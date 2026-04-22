@@ -610,51 +610,16 @@
       function handleNotif(event){
         try {
           const dv = event?.target?.value || characteristic?.value;
-          if (!dv) {
-            setStatus("Notif reçue mais DataView introuvable");
-            return;
-          }
+          if (!dv) return;
 
-          const len = dv.byteLength;
-          const magic = len >= 1 ? dv.getUint8(0) : -1;
-          const ver   = len >= 2 ? dv.getUint8(1) : -1;
+          const m = parseBinaryPacket(dv) ?? parseAsciiCsv(dv);
 
-          console.log("=== BLE NOTIF ===");
-          console.log("byteLength =", len);
-          console.log("magic =", magic, "ver =", ver);
-
-          let I = NaN, V1 = NaN, P = NaN, T1 = NaN, T2 = NaN, VBAT = NaN;
-
-          if (magic === 0xA5 && ver === 4 && len >= 20) {
-            const I_mA    = dv.getInt16(2, true);
-            const V_mV    = dv.getInt32(4, true);
-            const P_mW    = dv.getInt32(8, true);
-            const T1_dC   = dv.getInt16(12, true);
-            const T2_dC   = dv.getInt16(14, true);
-            const VBAT_mV = dv.getInt32(16, true);
-
-            I    = I_mA / 1000.0;
-            V1   = V_mV / 1000.0;
-            P    = P_mW / 1000.0;
-            T1   = (T1_dC === -32768) ? NaN : (T1_dC / 10.0);
-            T2   = (T2_dC === -32768) ? NaN : (T2_dC / 10.0);
-            VBAT = VBAT_mV / 1000.0;
-
-            console.log("Decoded v4 =", { I, V1, P, T1, T2, VBAT });
-            setStatus(`BLE OK | len=${len} | ver=${ver} | VBAT=${Number.isFinite(VBAT) ? VBAT.toFixed(3) : "NaN"} V`);
-          } else {
-            const m = parseBinaryPacket(dv) ?? parseAsciiCsv(dv);
-            console.log("Fallback parsed =", m);
-
-            I    = m?.I    ?? NaN;
-            V1   = m?.V1   ?? NaN;
-            P    = m?.P    ?? NaN;
-            T1   = m?.T1   ?? NaN;
-            T2   = m?.T2   ?? NaN;
-            VBAT = m?.VBAT ?? NaN;
-
-            setStatus(`BLE fallback | len=${len} | ver=${ver} | VBAT=${Number.isFinite(VBAT) ? VBAT.toFixed(3) : "NaN"} V`);
-          }
+          const I    = m?.I    ?? NaN;
+          const V1   = m?.V1   ?? NaN;
+          const P    = m?.P    ?? NaN;
+          const T1   = m?.T1   ?? NaN;
+          const T2   = m?.T2   ?? NaN;
+          const VBAT = m?.VBAT ?? NaN;
 
           vP.textContent    = Number.isFinite(P)    ? fmt(P,1)    : '—';
           vI.textContent    = Number.isFinite(I)    ? fmt(I,3)    : '—';
@@ -790,10 +755,6 @@
       btnDownload.addEventListener('click', downloadCSV);
       btnOpenCsv.addEventListener('click', openCSVInTab);
       btnCopyCsv.addEventListener('click', copyCSV);
-
-      console.log("PAGE DEBUG LOADED");
-      console.log("valVBAT =", vVBAT);
-      console.log("plotVBAT =", canvVBAT);
 
       resizeAll();
     </script>
