@@ -610,46 +610,58 @@
       }
 
       function handleNotif(event){
-        const dv = event.target.value;
-        const m = parseBinaryPacket(dv) ?? parseAsciiCsv(dv);
+  try {
+    const dv = event.target.value;
+    const m = parseBinaryPacket(dv) ?? parseAsciiCsv(dv);
 
-        const I    = m.I;
-        const V1   = m.V1;
-        const P    = m.P;
-        const T1   = m.T1;
-        const T2   = m.T2;
-        const VBAT = m.VBAT ?? NaN;
+    console.log("=== BLE NOTIF ===");
+    console.log("byteLength =", dv.byteLength);
+    console.log("parsed =", m);
+    console.log("valVBAT element =", vVBAT);
 
-        vP.textContent    = Number.isFinite(P)    ? fmt(P,1)    : '—';
-        vI.textContent    = fmt(I,3);
-        vV1.textContent   = fmt(V1,3);
-        vVBAT.textContent = Number.isFinite(VBAT) ? fmt(VBAT,3) : '—';
-        vT1.textContent   = Number.isFinite(T1)   ? fmt(T1,1)   : '—';
-        vT2.textContent   = Number.isFinite(T2)   ? fmt(T2,1)   : '—';
+    const I    = m?.I;
+    const V1   = m?.V1;
+    const P    = m?.P;
+    const T1   = m?.T1;
+    const T2   = m?.T2;
+    const VBAT = m?.VBAT ?? NaN;
 
-        updateMM('P', P);
-        updateMM('I', I);
-        updateMM('V1', V1);
-        if (Number.isFinite(VBAT)) updateMM('VBAT', VBAT);
-        if (Number.isFinite(T1)) updateMM('T1', T1);
-        if (Number.isFinite(T2)) updateMM('T2', T2);
+    console.log("VBAT decoded =", VBAT);
 
-        if (Number.isFinite(P)) push(bufs.P, P);
-        push(bufs.I, I);
-        push(bufs.V1, V1);
-        if (Number.isFinite(VBAT)) push(bufs.VBAT, VBAT);
-        if (Number.isFinite(T1)) push(bufs.T1, T1);
-        if (Number.isFinite(T2)) push(bufs.T2, T2);
+    vP.textContent    = Number.isFinite(P)    ? fmt(P,1)    : '—';
+    vI.textContent    = Number.isFinite(I)    ? fmt(I,3)    : '—';
+    vV1.textContent   = Number.isFinite(V1)   ? fmt(V1,3)   : '—';
+    vVBAT.textContent = Number.isFinite(VBAT) ? fmt(VBAT,3) : '—';
+    vT1.textContent   = Number.isFinite(T1)   ? fmt(T1,1)   : '—';
+    vT2.textContent   = Number.isFinite(T2)   ? fmt(T2,1)   : '—';
 
-        drawSparkline(ctxP, bufs.P);
-        drawSparkline(ctxI, bufs.I);
-        drawSparkline(ctxV1, bufs.V1);
-        drawSparkline(ctxVBAT, bufs.VBAT);
-        drawSparkline(ctxT1, bufs.T1);
-        drawSparkline(ctxT2, bufs.T2);
+    updateMM('P', P);
+    updateMM('I', I);
+    updateMM('V1', V1);
+    if (Number.isFinite(VBAT)) updateMM('VBAT', VBAT);
+    if (Number.isFinite(T1)) updateMM('T1', T1);
+    if (Number.isFinite(T2)) updateMM('T2', T2);
 
-        lastSample = {I, V1, VBAT, P, T1, T2, has:true};
-      }
+    if (Number.isFinite(P)) push(bufs.P, P);
+    if (Number.isFinite(I)) push(bufs.I, I);
+    if (Number.isFinite(V1)) push(bufs.V1, V1);
+    if (Number.isFinite(VBAT)) push(bufs.VBAT, VBAT);
+    if (Number.isFinite(T1)) push(bufs.T1, T1);
+    if (Number.isFinite(T2)) push(bufs.T2, T2);
+
+    drawSparkline(ctxP, bufs.P);
+    drawSparkline(ctxI, bufs.I);
+    drawSparkline(ctxV1, bufs.V1);
+    drawSparkline(ctxVBAT, bufs.VBAT);
+    drawSparkline(ctxT1, bufs.T1);
+    drawSparkline(ctxT2, bufs.T2);
+
+    lastSample = {I, V1, VBAT, P, T1, T2, has:true};
+  } catch (err) {
+    console.error("handleNotif error:", err);
+    setStatus("Erreur JS notif: " + err.message);
+  }
+}
 
       async function connect(){
         try{
