@@ -1,704 +1,649 @@
-const statusEl = document.getElementById('status');
-const btnConnect = document.getElementById('btnConnect');
-const btnDisconnect = document.getElementById('btnDisconnect');
-const btnResetMM = document.getElementById('btnResetMM');
-const btnLog = document.getElementById('btnLog');
-const btnDownload = document.getElementById('btnDownload');
-const btnOpenCsv = document.getElementById('btnOpenCsv');
-const btnCopyCsv = document.getElementById('btnCopyCsv');
+/* =========================================================
+   ARASTELLE FlightTest Dashboard
+   Thème auto clair / sombre + DA Arastelle
+   ========================================================= */
 
-const btnAdv = document.getElementById('btnAdv');
-const advPanel = document.getElementById('advPanel');
+/* =========================
+   Base : Dark mode par défaut
+   ========================= */
 
-const devNameInput = document.getElementById('devName');
-const devPrefixInput = document.getElementById('devPrefix');
-const svcInput = document.getElementById('svc');
-const chrInput = document.getElementById('chr');
-const selRate = document.getElementById('selRate');
+:root {
+  color-scheme: dark;
 
-const droneSel = document.getElementById('droneTypeQuick');
+  --bg: #05070b;
+  --bg-soft: #080d14;
+  --fg: #f3f7fb;
+  --muted: #8f9dad;
 
-const bleDot = document.getElementById('bleDot');
-const valRSSI = document.getElementById('valRSSI');
+  --brand: #ffffff;
+  --brand-blue: #2f7dff;
+  --brand-blue-soft: #6aa6ff;
 
-const vI = document.getElementById('valI');
-const vV1 = document.getElementById('valV1');
-const vVBAT = document.getElementById('valVBAT');
-const vP = document.getElementById('valP');
-const vT1 = document.getElementById('valT1');
-const vT2 = document.getElementById('valT2');
+  --ok: #22c55e;
+  --warn: #f59e0b;
+  --danger: #ef4444;
 
-const minI = document.getElementById('minI');
-const maxI = document.getElementById('maxI');
-const minV1 = document.getElementById('minV1');
-const maxV1 = document.getElementById('maxV1');
-const minVBAT = document.getElementById('minVBAT');
-const maxVBAT = document.getElementById('maxVBAT');
-const minP = document.getElementById('minP');
-const maxP = document.getElementById('maxP');
-const minT1 = document.getElementById('minT1');
-const maxT1 = document.getElementById('maxT1');
-const minT2 = document.getElementById('minT2');
-const maxT2 = document.getElementById('maxT2');
+  --card: #0d121b;
+  --card-2: #111827;
+  --border: #253041;
 
-const canvI = document.getElementById('plotI');
-const canvV1 = document.getElementById('plotV1');
-const canvVBAT = document.getElementById('plotVBAT');
-const canvP = document.getElementById('plotP');
-const canvT1 = document.getElementById('plotT1');
-const canvT2 = document.getElementById('plotT2');
+  --shadow: 0 18px 45px rgba(0, 0, 0, .55);
+  --glow: 0 0 24px rgba(47, 125, 255, .24);
 
-let ctxI, ctxV1, ctxVBAT, ctxP, ctxT1, ctxT2;
-let device = null;
-let server = null;
-let characteristic = null;
+  --radius: 10px;
+  --radius-small: 6px;
 
-function setStatus(t) { statusEl.textContent = t; }
-function fmt(v, d = 2) { return Number.isFinite(v) ? v.toFixed(d) : '—'; }
-function setBleDot(colorCss) { bleDot.style.background = colorCss; }
-
-function formatDateHeader(d = new Date()) {
-  const pad = n => String(n).padStart(2, '0');
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
-function openAdv() {
-  advPanel.hidden = false;
-  btnAdv.setAttribute('aria-expanded', 'true');
-}
+/* =========================
+   Auto light mode
+   ========================= */
 
-function closeAdv() {
-  advPanel.hidden = true;
-  btnAdv.setAttribute('aria-expanded', 'false');
-}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
 
-btnAdv.addEventListener('click', (e) => {
-  e.stopPropagation();
-  advPanel.hidden ? openAdv() : closeAdv();
-});
+    --bg: #f4f6f9;
+    --bg-soft: #ffffff;
+    --fg: #111827;
+    --muted: #5b667a;
 
-document.addEventListener('click', () => {
-  if (!advPanel.hidden) closeAdv();
-});
+    --brand: #0f172a;
+    --brand-blue: #1f6fff;
+    --brand-blue-soft: #3b82f6;
 
-advPanel.addEventListener('click', (e) => e.stopPropagation());
+    --card: #ffffff;
+    --card-2: #f8fafc;
+    --border: #d7dde8;
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !advPanel.hidden) closeAdv();
-});
-
-const mm = {
-  I: { min: +Infinity, max: -Infinity, d: 3 },
-  V1: { min: +Infinity, max: -Infinity, d: 3 },
-  VBAT: { min: +Infinity, max: -Infinity, d: 3 },
-  P: { min: +Infinity, max: -Infinity, d: 1 },
-  T1: { min: +Infinity, max: -Infinity, d: 1 },
-  T2: { min: +Infinity, max: -Infinity, d: 1 },
-};
-
-function updateMM(key, val) {
-  if (!Number.isFinite(val)) return;
-
-  const s = mm[key];
-
-  if (val < s.min) s.min = val;
-  if (val > s.max) s.max = val;
-
-  if (key === 'I') { minI.textContent = fmt(s.min, s.d); maxI.textContent = fmt(s.max, s.d); }
-  if (key === 'V1') { minV1.textContent = fmt(s.min, s.d); maxV1.textContent = fmt(s.max, s.d); }
-  if (key === 'VBAT') { minVBAT.textContent = fmt(s.min, s.d); maxVBAT.textContent = fmt(s.max, s.d); }
-  if (key === 'P') { minP.textContent = fmt(s.min, s.d); maxP.textContent = fmt(s.max, s.d); }
-  if (key === 'T1') { minT1.textContent = fmt(s.min, s.d); maxT1.textContent = fmt(s.max, s.d); }
-  if (key === 'T2') { minT2.textContent = fmt(s.min, s.d); maxT2.textContent = fmt(s.max, s.d); }
-}
-
-function resetMM() {
-  for (const k of Object.keys(mm)) {
-    mm[k].min = +Infinity;
-    mm[k].max = -Infinity;
-  }
-
-  minI.textContent = maxI.textContent = '—';
-  minV1.textContent = maxV1.textContent = '—';
-  minVBAT.textContent = maxVBAT.textContent = '—';
-  minP.textContent = maxP.textContent = '—';
-  minT1.textContent = maxT1.textContent = '—';
-  minT2.textContent = maxT2.textContent = '—';
-}
-
-function fitCanvas(canvas, targetH = 110) {
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const cssW = canvas.clientWidth;
-  const cssH = targetH;
-
-  canvas.width = Math.floor(cssW * dpr);
-  canvas.height = Math.floor(cssH * dpr);
-
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  return ctx;
-}
-
-const BUFLEN = 180;
-const bufs = { I: [], V1: [], VBAT: [], P: [], T1: [], T2: [] };
-
-function drawSparkline(ctx, data) {
-  if (!ctx) return;
-
-  const W = ctx.canvas.clientWidth;
-  const H = ctx.canvas.clientHeight;
-
-  ctx.clearRect(0, 0, W, H);
-
-  if (data.length < 2) return;
-
-  let min = Infinity;
-  let max = -Infinity;
-
-  for (const v of data) {
-    if (Number.isFinite(v)) {
-      if (v < min) min = v;
-      if (v > max) max = v;
-    }
-  }
-
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) {
-    min -= 1;
-    max += 1;
-  }
-
-  const pad = 6;
-
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = getComputedStyle(document.documentElement)
-    .getPropertyValue('--brand-blue')
-    .trim();
-  ctx.beginPath();
-
-  data.forEach((v, i) => {
-    const x = pad + (W - 2 * pad) * (i / (data.length - 1));
-    const y = H - pad - ((v - min) / (max - min)) * (H - 2 * pad);
-
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-
-  ctx.stroke();
-}
-
-function resizeAll() {
-  ctxI = fitCanvas(canvI);
-  ctxV1 = fitCanvas(canvV1);
-  ctxVBAT = fitCanvas(canvVBAT);
-  ctxP = fitCanvas(canvP);
-  ctxT1 = fitCanvas(canvT1);
-  ctxT2 = fitCanvas(canvT2);
-
-  drawSparkline(ctxI, bufs.I);
-  drawSparkline(ctxV1, bufs.V1);
-  drawSparkline(ctxVBAT, bufs.VBAT);
-  drawSparkline(ctxP, bufs.P);
-  drawSparkline(ctxT1, bufs.T1);
-  drawSparkline(ctxT2, bufs.T2);
-}
-
-window.addEventListener('resize', () => {
-  clearTimeout(resizeAll._t);
-  resizeAll._t = setTimeout(resizeAll, 120);
-});
-
-function push(buf, val) {
-  buf.push(val);
-
-  if (buf.length > BUFLEN) {
-    buf.shift();
+    --shadow: 0 14px 35px rgba(15, 23, 42, .10);
+    --glow: 0 0 18px rgba(31, 111, 255, .18);
   }
 }
 
-let isLogging = false;
-let logRows = [];
-let logTimer = null;
-let lastSample = { I: NaN, V1: NaN, VBAT: NaN, P: NaN, T1: NaN, T2: NaN, has: false };
+/* =========================
+   Reset
+   ========================= */
 
-function toFixedComma(n, d) {
-  return Number.isFinite(n) ? n.toFixed(d).replace('.', ',') : '';
+* {
+  box-sizing: border-box;
 }
 
-function nowIsoLocal() {
-  const d = new Date();
-  const tz = -d.getTimezoneOffset();
-  const sign = tz >= 0 ? '+' : '-';
-  const hh = String(Math.floor(Math.abs(tz) / 60)).padStart(2, '0');
-  const mm = String(Math.abs(tz) % 60).padStart(2, '0');
-
-  return d.toISOString().replace('Z', '') + sign + hh + ':' + mm;
+html,
+body {
+  min-height: 100%;
 }
 
-function refreshExportButtons() {
-  const hasData = logRows.length > 1;
-
-  btnDownload.disabled = !hasData;
-  btnOpenCsv.disabled = !hasData;
-  btnCopyCsv.disabled = !hasData;
+body {
+  margin: 0;
+  font-family: var(--font);
+  background:
+    radial-gradient(circle at top left, rgba(47, 125, 255, .18), transparent 34rem),
+    radial-gradient(circle at bottom right, rgba(255, 255, 255, .06), transparent 28rem),
+    var(--bg);
+  color: var(--fg);
+  overflow-x: hidden;
 }
 
-function startLogging() {
-  droneSel.disabled = true;
-
-  logRows = [];
-  logRows.push("# FlightTest FSM");
-  logRows.push("# Date: " + formatDateHeader());
-  logRows.push("# Drone: " + droneSel.value);
-  logRows.push("# DeviceName: " + (device?.name || "N/A"));
-  logRows.push("");
-  logRows.push("timestamp;I_A;VHV_V;VBAT_V;P_W;T1_C;T2_C");
-
-  isLogging = true;
-  btnLog.textContent = 'Stop logging';
-
-  setStatus('Enregistrement en cours…');
-  refreshExportButtons();
-
-  const period = parseInt(selRate.value, 10) || 1000;
-
-  if (logTimer) clearInterval(logTimer);
-
-  logTimer = setInterval(() => {
-    if (!isLogging || !lastSample.has) return;
-
-    logRows.push([
-      nowIsoLocal(),
-      toFixedComma(lastSample.I, 3),
-      toFixedComma(lastSample.V1, 3),
-      toFixedComma(lastSample.VBAT, 3),
-      toFixedComma(lastSample.P, 1),
-      toFixedComma(lastSample.T1, 1),
-      toFixedComma(lastSample.T2, 1)
-    ].join(';'));
-
-    refreshExportButtons();
-  }, period);
+/* grille technique en fond */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, .75), rgba(0, 0, 0, .1));
 }
 
-function stopLogging() {
-  isLogging = false;
-  droneSel.disabled = false;
-  btnLog.textContent = 'Start logging';
-
-  setStatus('Enregistrement stoppé.');
-
-  if (logTimer) {
-    clearInterval(logTimer);
-    logTimer = null;
-  }
-
-  refreshExportButtons();
-}
-
-function downloadCSV() {
-  if (logRows.length <= 1) return;
-
-  const csv = logRows.join('\n') + '\n';
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const ts = new Date().toISOString().replace(/[:.]/g, '-');
-
-  a.href = url;
-  a.download = `FlightTest_${ts}.csv`;
-
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-
-  URL.revokeObjectURL(url);
-
-  setStatus('CSV téléchargé');
-}
-
-function openCSVInTab() {
-  if (logRows.length <= 1) return;
-
-  const csv = logRows.join('\n') + '\n';
-  const win = window.open();
-
-  if (!win) {
-    setStatus('Pop-up bloquée. Autorise les pop-up.');
-    return;
-  }
-
-  win.document.write(
-    '<pre style="white-space:pre-wrap;word-wrap:break-word;margin:1rem;">'
-    + csv.replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    + '</pre>'
-  );
-
-  setStatus('CSV ouvert. Sélectionne et copie.');
-}
-
-async function copyCSV() {
-  if (logRows.length <= 1) return;
-
-  const csv = logRows.join('\n') + '\n';
-
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(csv);
-      setStatus('CSV copié dans le presse-papiers.');
-    } else {
-      const ta = document.createElement('textarea');
-
-      ta.value = csv;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-
-      setStatus('CSV copié.');
-    }
-  } catch (e) {
-    setStatus('Impossible de copier. Utilise “Ouvrir CSV”.');
+@media (prefers-color-scheme: light) {
+  body::before {
+    background:
+      linear-gradient(rgba(15, 23, 42, .045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 23, 42, .045) 1px, transparent 1px);
   }
 }
 
-let advHandler = null;
+/* =========================
+   Header
+   ========================= */
 
-function updateRssi(rssi) {
-  valRSSI.textContent = Number.isFinite(rssi) ? String(Math.round(rssi)) : '—';
-
-  if (!Number.isFinite(rssi)) setBleDot('var(--danger)');
-  else if (rssi > -65) setBleDot('var(--ok)');
-  else if (rssi > -80) setBleDot('var(--warn)');
-  else setBleDot('var(--danger)');
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(5, 7, 11, .82);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
 }
 
-async function startRssiWatch() {
-  updateRssi(NaN);
-
-  if (!device) return;
-  if (!device.watchAdvertisements) return;
-
-  stopRssiWatch();
-
-  advHandler = (event) => updateRssi(event.rssi);
-  device.addEventListener('advertisementreceived', advHandler);
-
-  try {
-    await device.watchAdvertisements();
-  } catch (e) {
-    console.warn(e);
+@media (prefers-color-scheme: light) {
+  header {
+    background: rgba(255, 255, 255, .88);
   }
 }
 
-function stopRssiWatch() {
-  if (device && advHandler) {
-    device.removeEventListener('advertisementreceived', advHandler);
-  }
-
-  advHandler = null;
-  updateRssi(NaN);
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .85rem;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: .9rem 1rem;
 }
 
-function parseAsciiCsv(dv) {
-  let s = '';
-
-  for (let i = 0; i < dv.byteLength; i++) {
-    s += String.fromCharCode(dv.getUint8(i));
-  }
-
-  const tok = s.split(';').map(t => (t ?? '').trim());
-
-  const toNum = (x) => {
-    if (!x) return NaN;
-    if (x.toLowerCase() === 'nan') return NaN;
-
-    const v = parseFloat(x);
-
-    return Number.isFinite(v) ? v : NaN;
-  };
-
-  return {
-    I: toNum(tok[0]),
-    V1: toNum(tok[1]),
-    P: toNum(tok[2]),
-    T1: toNum(tok[3]),
-    T2: toNum(tok[4]),
-    VBAT: toNum(tok[5])
-  };
+.brand {
+  position: relative;
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--brand);
+  padding-left: .85rem;
 }
 
-function parseBinaryPacket(dv) {
-  if (dv.byteLength < 12) return null;
-
-  const magic = dv.getUint8(0);
-  const ver = dv.getUint8(1);
-
-  if (magic !== 0xA5) return null;
-
-  if (ver === 1 && dv.byteLength >= 12) {
-    const I_mA = dv.getInt16(2, true);
-    const V_mV = dv.getUint16(4, true);
-    const P_dW = dv.getInt16(6, true);
-    const T1_dC = dv.getInt16(8, true);
-    const T2_dC = dv.getInt16(10, true);
-
-    return {
-      I: I_mA / 1000.0,
-      V1: V_mV / 1000.0,
-      P: P_dW / 10.0,
-      T1: (T1_dC === -32768) ? NaN : (T1_dC / 10.0),
-      T2: (T2_dC === -32768) ? NaN : (T2_dC / 10.0),
-      VBAT: NaN
-    };
-  }
-
-  if (ver === 3 && dv.byteLength >= 16) {
-    const I_mA = dv.getInt16(2, true);
-    const V_mV = dv.getInt32(4, true);
-    const P_mW = dv.getInt32(8, true);
-    const T1_dC = dv.getInt16(12, true);
-    const T2_dC = dv.getInt16(14, true);
-
-    return {
-      I: I_mA / 1000.0,
-      V1: V_mV / 1000.0,
-      P: P_mW / 1000.0,
-      T1: (T1_dC === -32768) ? NaN : (T1_dC / 10.0),
-      T2: (T2_dC === -32768) ? NaN : (T2_dC / 10.0),
-      VBAT: NaN
-    };
-  }
-
-  if (ver === 4 && dv.byteLength >= 20) {
-    const I_mA = dv.getInt16(2, true);
-    const V_mV = dv.getInt32(4, true);
-    const P_mW = dv.getInt32(8, true);
-    const T1_dC = dv.getInt16(12, true);
-    const T2_dC = dv.getInt16(14, true);
-    const VBAT_mV = dv.getInt32(16, true);
-
-    return {
-      I: I_mA / 1000.0,
-      V1: V_mV / 1000.0,
-      P: P_mW / 1000.0,
-      T1: (T1_dC === -32768) ? NaN : (T1_dC / 10.0),
-      T2: (T2_dC === -32768) ? NaN : (T2_dC / 10.0),
-      VBAT: VBAT_mV / 1000.0,
-    };
-  }
-
-  return null;
+.brand::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 4px;
+  height: 1.45rem;
+  transform: translateY(-50%);
+  background: var(--brand-blue);
+  box-shadow: var(--glow);
 }
 
-function handleNotif(event) {
-  try {
-    const dv = event?.target?.value || characteristic?.value;
+/* =========================
+   Controls
+   ========================= */
 
-    if (!dv) {
-      setStatus("Notif reçue mais DataView introuvable");
-      return;
-    }
+.controls {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
 
-    const len = dv.byteLength;
-    const magic = len >= 1 ? dv.getUint8(0) : -1;
-    const ver = len >= 2 ? dv.getUint8(1) : -1;
+button {
+  appearance: none;
+  min-width: 110px;
+  padding: .7rem .95rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: linear-gradient(180deg, var(--card-2), var(--card));
+  color: var(--fg);
+  font-weight: 700;
+  font-size: .88rem;
+  letter-spacing: .01em;
+  cursor: pointer;
+  transition:
+    transform .16s ease,
+    border-color .16s ease,
+    box-shadow .16s ease,
+    background .16s ease,
+    opacity .16s ease;
+}
 
-    console.log("=== BLE NOTIF ===");
-    console.log("byteLength =", len);
-    console.log("magic =", magic, "ver =", ver);
+button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(47, 125, 255, .75);
+  box-shadow: var(--glow);
+}
 
-    let I = NaN;
-    let V1 = NaN;
-    let P = NaN;
-    let T1 = NaN;
-    let T2 = NaN;
-    let VBAT = NaN;
+button:active {
+  transform: translateY(0);
+}
 
-    if (magic === 0xA5 && ver === 4 && len >= 20) {
-      const I_mA = dv.getInt16(2, true);
-      const V_mV = dv.getInt32(4, true);
-      const P_mW = dv.getInt32(8, true);
-      const T1_dC = dv.getInt16(12, true);
-      const T2_dC = dv.getInt16(14, true);
-      const VBAT_mV = dv.getInt32(16, true);
+button.primary {
+  border-color: rgba(47, 125, 255, .65);
+  background:
+    linear-gradient(135deg, #1f6fff, #0b4fd6);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), var(--glow);
+}
 
-      I = I_mA / 1000.0;
-      V1 = V_mV / 1000.0;
-      P = P_mW / 1000.0;
-      T1 = (T1_dC === -32768) ? NaN : (T1_dC / 10.0);
-      T2 = (T2_dC === -32768) ? NaN : (T2_dC / 10.0);
-      VBAT = VBAT_mV / 1000.0;
+button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
 
-      console.log("Decoded v4 =", { I, V1, P, T1, T2, VBAT });
-      setStatus(`BLE OK | len=${len} | ver=${ver} | VBAT=${Number.isFinite(VBAT) ? VBAT.toFixed(3) : "NaN"} V`);
-    } else {
-      const m = parseBinaryPacket(dv) ?? parseAsciiCsv(dv);
+/* =========================
+   Layout
+   ========================= */
 
-      console.log("Fallback parsed =", m);
+main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.15rem 1rem;
+}
 
-      I = m?.I ?? NaN;
-      V1 = m?.V1 ?? NaN;
-      P = m?.P ?? NaN;
-      T1 = m?.T1 ?? NaN;
-      T2 = m?.T2 ?? NaN;
-      VBAT = m?.VBAT ?? NaN;
+.grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
 
-      setStatus(`BLE fallback | len=${len} | ver=${ver} | VBAT=${Number.isFinite(VBAT) ? VBAT.toFixed(3) : "NaN"} V`);
-    }
+.gridTop {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
 
-    vP.textContent = Number.isFinite(P) ? fmt(P, 1) : '—';
-    vI.textContent = Number.isFinite(I) ? fmt(I, 3) : '—';
-    vV1.textContent = Number.isFinite(V1) ? fmt(V1, 3) : '—';
-    vVBAT.textContent = Number.isFinite(VBAT) ? fmt(VBAT, 3) : '—';
-    vT1.textContent = Number.isFinite(T1) ? fmt(T1, 1) : '—';
-    vT2.textContent = Number.isFinite(T2) ? fmt(T2, 1) : '—';
+.gridTemp {
+  margin-top: 1rem;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
 
-    updateMM('P', P);
-    updateMM('I', I);
-    updateMM('V1', V1);
-
-    if (Number.isFinite(VBAT)) updateMM('VBAT', VBAT);
-    if (Number.isFinite(T1)) updateMM('T1', T1);
-    if (Number.isFinite(T2)) updateMM('T2', T2);
-
-    if (Number.isFinite(P)) push(bufs.P, P);
-    if (Number.isFinite(I)) push(bufs.I, I);
-    if (Number.isFinite(V1)) push(bufs.V1, V1);
-    if (Number.isFinite(VBAT)) push(bufs.VBAT, VBAT);
-    if (Number.isFinite(T1)) push(bufs.T1, T1);
-    if (Number.isFinite(T2)) push(bufs.T2, T2);
-
-    drawSparkline(ctxP, bufs.P);
-    drawSparkline(ctxI, bufs.I);
-    drawSparkline(ctxV1, bufs.V1);
-    drawSparkline(ctxVBAT, bufs.VBAT);
-    drawSparkline(ctxT1, bufs.T1);
-    drawSparkline(ctxT2, bufs.T2);
-
-    lastSample = { I, V1, VBAT, P, T1, T2, has: true };
-
-  } catch (err) {
-    console.error("handleNotif error:", err);
-    setStatus("Erreur JS notif: " + err.message);
+@media (max-width:520px) {
+  .gridTemp {
+    grid-template-columns: 1fr;
   }
 }
 
-async function connect() {
-  alert("Bouton Connect BLE cliqué");
-  try {
-    if (!('bluetooth' in navigator)) {
-      setStatus('Web Bluetooth non supporté.');
-      return;
-    }
+/* =========================
+   Cards
+   ========================= */
 
-    btnConnect.disabled = true;
-    setStatus('Scan BLE…');
+.card {
+  position: relative;
+  overflow: hidden;
+  min-height: 210px;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, .035), transparent 32%),
+    linear-gradient(180deg, var(--card-2), var(--card));
+  box-shadow: var(--shadow);
+}
 
-    const serviceUuid = svcInput.value.trim();
-    const charUuid = chrInput.value.trim();
-    const exactName = devNameInput.value.trim();
-    const prefix = devPrefixInput.value.trim();
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--brand-blue), transparent);
+  opacity: .75;
+}
 
-    const filters = [];
+.card::after {
+  content: "";
+  position: absolute;
+  right: -40px;
+  bottom: -40px;
+  width: 120px;
+  height: 120px;
+  border: 1px solid rgba(47, 125, 255, .18);
+  border-radius: 50%;
+  pointer-events: none;
+}
 
-    if (exactName) {
-      filters.push({ name: exactName });
-    } else {
-      filters.push({ namePrefix: prefix || "FSM" });
-    }
+.label {
+  position: relative;
+  z-index: 1;
+  font-size: .78rem;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 
-    device = await navigator.bluetooth.requestDevice({
-      filters,
-      optionalServices: [serviceUuid]
-    });
+.value {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: .2rem;
+  margin-top: .45rem;
+  font-size: 2.45rem;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: .02em;
+  color: var(--fg);
+}
 
-    await startRssiWatch();
+.unit {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-left: .2rem;
+  padding-bottom: .18rem;
+}
 
-    device.addEventListener('gattserverdisconnected', onDisconnected);
+.minmax {
+  position: relative;
+  z-index: 1;
+  margin-top: .45rem;
+  font-size: .84rem;
+  color: var(--muted);
+}
 
-    setStatus('Connexion GATT…');
-    server = await device.gatt.connect();
+.minmax .k {
+  color: var(--fg);
+  opacity: .82;
+  font-weight: 800;
+  margin-right: .25rem;
+}
 
-    setStatus('Service…');
-    const service = await server.getPrimaryService(serviceUuid);
+/* =========================
+   Graphiques
+   ========================= */
 
-    setStatus('Characteristic…');
-    characteristic = await service.getCharacteristic(charUuid);
+.spark {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 110px;
+  margin-top: .75rem;
+  opacity: .96;
+  filter: drop-shadow(0 0 8px rgba(47, 125, 255, .28));
+}
 
-    setStatus('Notifications…');
-    await characteristic.startNotifications();
+/* =========================
+   Status / top right
+   ========================= */
 
-    characteristic.addEventListener('characteristicvaluechanged', handleNotif);
+.topRight {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+}
 
-    setBleDot('var(--ok)');
-    setStatus(`Connecté à "${device.name}"`);
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  flex-wrap: wrap;
+}
 
-    btnDisconnect.disabled = false;
+.quick {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
 
-  } catch (e) {
-    console.error(e);
+.quick label {
+  margin: 0;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 750;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
 
-    setStatus('Erreur: ' + e.message);
-    btnConnect.disabled = false;
-    setBleDot('var(--danger)');
+.quick select {
+  min-width: 120px;
+  padding: .5rem .65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--card);
+  color: var(--fg);
+}
 
-    stopRssiWatch();
+.pill {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .48rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(13, 18, 27, .82);
+  color: var(--muted);
+  font-size: .86rem;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: light) {
+  .pill {
+    background: rgba(255, 255, 255, .9);
   }
 }
 
-async function disconnect() {
-  setStatus('Déconnexion…');
-  setBleDot('var(--danger)');
+.pill .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  display: inline-block;
+  box-shadow: 0 0 10px currentColor;
+}
 
-  btnDisconnect.disabled = true;
-  btnConnect.disabled = false;
+.pill .sep {
+  opacity: .45;
+  margin: 0 .25rem;
+}
 
-  stopRssiWatch();
+.pill .k {
+  color: var(--fg);
+  opacity: .85;
+  font-weight: 800;
+}
 
-  try {
-    if (characteristic) {
-      try {
-        await characteristic.stopNotifications();
-      } catch (e) { }
+.unitSmall {
+  font-size: .82rem;
+  color: var(--muted);
+  margin-left: .12rem;
+}
 
-      characteristic.removeEventListener('characteristicvaluechanged', handleNotif);
-      characteristic = null;
+/* =========================
+   Advanced panel
+   ========================= */
+
+.advMenu {
+  position: relative;
+}
+
+.iconBtn {
+  min-width: auto;
+  padding: .55rem .75rem;
+  border-radius: var(--radius-small);
+  font-weight: 800;
+}
+
+.advPanel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + .6rem);
+  z-index: 999;
+  width: min(540px, calc(100vw - 2rem));
+  padding: .85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, var(--card-2), var(--card));
+  box-shadow: var(--shadow);
+}
+
+.advTitle {
+  margin: .2rem .25rem .85rem;
+  font-weight: 850;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .55rem;
+  margin: 0;
+}
+
+.opts label {
+  margin-right: .2rem;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 750;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+input[type=text],
+select {
+  flex: 1 1 240px;
+  min-width: 200px;
+  padding: .62rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--bg-soft);
+  color: var(--fg);
+  outline: none;
+}
+
+input[type=text]:focus,
+select:focus {
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 3px rgba(47, 125, 255, .18);
+}
+
+.advHint {
+  flex-basis: 100%;
+  margin-top: .25rem;
+  padding: .35rem;
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.45;
+}
+
+/* =========================
+   Footer logo
+   ========================= */
+
+.footerLogo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem 1rem 1.75rem;
+  opacity: .72;
+}
+
+.footerLogo img {
+  display: block;
+  width: min(260px, 70vw);
+  height: auto;
+  filter: grayscale(100%) brightness(1.1);
+}
+
+/* =========================
+   Mobile compact header
+   ========================= */
+
+@media (max-width:780px) {
+  header {
+    position: static;
+  }
+
+  .bar {
+    padding: .7rem;
+    gap: .6rem;
+  }
+
+  .brand {
+    width: 100%;
+    font-size: .78rem;
+  }
+
+  .controls {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .45rem;
+  }
+
+  .controls button {
+    min-width: 0;
+    padding: .6rem .5rem;
+    font-size: .78rem;
+  }
+
+  .topRight {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: .45rem;
+    align-items: center;
+  }
+
+  .badgeRow {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: .45rem;
+  }
+
+  .quick {
+    width: 100%;
+  }
+
+  .quick label {
+    display: none;
+  }
+
+  .quick select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pill {
+    width: 100%;
+    justify-content: center;
+    font-size: .78rem;
+    padding: .45rem .5rem;
+  }
+
+  .iconBtn {
+    min-width: 42px;
+    height: 42px;
+    padding: .45rem;
+  }
+
+  main {
+    padding: .75rem;
+  }
+
+  .card {
+    min-height: 180px;
+  }
+
+  .value {
+    font-size: 1.9rem;
+  }
+
+  .spark {
+    height: 90px;
+  }
+
+  @media (max-width:520px) {
+
+    #btnResetMM,
+    #btnOpenCsv,
+    #btnDownload {
+      display: none;
     }
 
-    if (device && device.gatt && device.gatt.connected) {
-      device.gatt.disconnect();
+    .controls {
+      grid-template-columns: 1fr 1fr;
     }
-  } catch (e) {
-    console.warn('Disconnect error:', e);
+
+    .gridTemp {
+      grid-template-columns: 1fr;
+    }
+
+    .opts label,
+    input[type=text],
+    select {
+      flex-basis: 100%;
+    }
   }
-
-  server = null;
-  device = null;
-  lastSample = { I: NaN, V1: NaN, VBAT: NaN, P: NaN, T1: NaN, T2: NaN, has: false };
-
-  setStatus('Déconnecté.');
 }
 
-function onDisconnected() {
-  stopRssiWatch();
-  setBleDot('var(--danger)');
-  setStatus('Déconnecté (radio).');
-
-  btnConnect.disabled = false;
-  btnDisconnect.disabled = true;
-}
-
-btnConnect.addEventListener('click', connect);
-btnDisconnect.addEventListener('click', disconnect);
-btnResetMM.addEventListener('click', resetMM);
-btnLog.addEventListener('click', () => isLogging ? stopLogging() : startLogging());
-btnDownload.addEventListener('click', downloadCSV);
-btnOpenCsv.addEventListener('click', openCSVInTab);
-btnCopyCsv.addEventListener('click', copyCSV);
-
-console.log("PAGE DEBUG LOADED");
-console.log("valVBAT =", vVBAT);
-console.log("plotVBAT =", canvVBAT);
-
-resizeAll();
