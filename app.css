@@ -1,10 +1,7 @@
 /* =========================================================
    ARASTELLE FlightTest Dashboard
+   Thème auto clair / sombre + DA Arastelle
    ========================================================= */
-
-/* =========================
-   Base : Dark mode par défaut
-   ========================= */
 
 :root {
   color-scheme: dark;
@@ -35,10 +32,6 @@
   --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
-/* =========================
-   Auto light mode
-   ========================= */
-
 @media (prefers-color-scheme: light) {
   :root {
     color-scheme: light;
@@ -61,10 +54,6 @@
   }
 }
 
-/* =========================
-   Reset
-   ========================= */
-
 * {
   box-sizing: border-box;
 }
@@ -85,7 +74,6 @@ body {
   overflow-x: hidden;
 }
 
-/* grille technique en fond */
 body::before {
   content: "";
   position: fixed;
@@ -114,7 +102,7 @@ body::before {
 header {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 9999;
   background: rgba(5, 7, 11, .82);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
@@ -202,8 +190,7 @@ button:active {
 
 button.primary {
   border-color: rgba(47, 125, 255, .65);
-  background:
-    linear-gradient(135deg, #1f6fff, #0b4fd6);
+  background: linear-gradient(135deg, #1f6fff, #0b4fd6);
   color: #ffffff;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), var(--glow);
 }
@@ -238,12 +225,6 @@ main {
 .gridTemp {
   margin-top: 1rem;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
-}
-
-@media (max-width:520px) {
-  .gridTemp {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* =========================
@@ -332,10 +313,6 @@ main {
   font-weight: 800;
   margin-right: .25rem;
 }
-
-/* =========================
-   Graphiques
-   ========================= */
 
 .spark {
   position: relative;
@@ -440,6 +417,7 @@ main {
 
 .advMenu {
   position: relative;
+  z-index: 10000;
 }
 
 .iconBtn {
@@ -453,13 +431,12 @@ main {
   position: absolute;
   right: 0;
   top: calc(100% + .6rem);
-  z-index: 999;
+  z-index: 10001;
   width: min(540px, calc(100vw - 2rem));
   padding: .85rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background:
-    linear-gradient(180deg, var(--card-2), var(--card));
+  background: linear-gradient(180deg, var(--card-2), var(--card));
   box-shadow: var(--shadow);
 }
 
@@ -537,9 +514,10 @@ select:focus {
    Mobile compact header
    ========================= */
 
-@media (max-width:780px) {
+@media (max-width: 780px) {
   header {
     position: static;
+    z-index: 9999;
   }
 
   .bar {
@@ -606,6 +584,12 @@ select:focus {
     padding: .45rem;
   }
 
+  .advPanel {
+    right: 0;
+    left: auto;
+    width: min(540px, calc(100vw - 1.4rem));
+  }
+
   main {
     padding: .75rem;
   }
@@ -621,28 +605,25 @@ select:focus {
   .spark {
     height: 90px;
   }
-
-  @media (max-width:520px) {
-
-    #btnResetMM,
-    #btnOpenCsv,
-    #btnDownload {
-      display: none;
-    }
-
-    .controls {
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .gridTemp {
-      grid-template-columns: 1fr;
-    }
-
-    .opts label,
-    input[type=text],
-    select {
-      flex-basis: 100%;
-    }
-  }
 }
 
+@media (max-width: 520px) {
+  #btnResetMM,
+  #btnDownload {
+    display: none;
+  }
+
+  .controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .gridTemp {
+    grid-template-columns: 1fr;
+  }
+
+  .opts label,
+  input[type=text],
+  select {
+    flex-basis: 100%;
+  }
+}
