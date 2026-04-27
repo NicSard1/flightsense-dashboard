@@ -1,0 +1,99 @@
+:root{
+  --bg:#ffffff; --fg:#0f172a; --muted:#5b667a;
+  --brand:#0a7cff; --ok:#10b981; --warn:#f59e0b; --danger:#ef4444;
+  --card:#ffffff; --border:#e5e7eb; --shadow:0 6px 20px rgba(15,23,42,.08);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--fg);}
+header{position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--border);}
+.bar{display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; justify-content:space-between; padding:.75rem 1rem; max-width:1100px; margin:0 auto;}
+.brand{font-weight:700; letter-spacing:.2px}
+.controls{display:flex; gap:.5rem; flex-wrap:wrap; align-items:center}
+
+button{
+  appearance:none; border:1px solid var(--border); background:#fafafa;
+  padding:.7rem 1rem; border-radius:.8rem; font-weight:600; cursor:pointer;
+  transition:.15s ease; min-width:110px;
+}
+button:hover{box-shadow:var(--shadow)}
+button.primary{background:var(--brand); color:#fff; border-color:transparent}
+button:disabled{opacity:.55; cursor:not-allowed; box-shadow:none}
+
+main{padding:1rem; max-width:1100px; margin:0 auto;}
+.grid{display:grid; gap:1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));}
+.gridTop{grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));}
+.gridTemp{margin-top:1rem; grid-template-columns: repeat(2, minmax(220px, 1fr));}
+
+@media (max-width: 520px){
+  .gridTemp{ grid-template-columns: 1fr; }
+}
+
+.card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:1rem; box-shadow:var(--shadow);}
+.label{font-size:.85rem; color:var(--muted);}
+.value{font-size:2.2rem; font-weight:800; line-height:1.1; margin-top:.35rem;}
+.unit{font-size:1.1rem; color:var(--muted); margin-left:.25rem}
+.spark{width:100%; height:110px; display:block; margin-top:.6rem;}
+.minmax{margin-top:.35rem; font-size:.9rem; color:var(--muted)}
+.minmax .k{font-weight:600; color:#334155; margin-right:.25rem}
+
+.topRight{display:flex; align-items:center; gap:.6rem;}
+.badgeRow{display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;}
+
+.quick{display:flex; align-items:center; gap:.4rem;}
+.quick label{color:var(--muted); font-size:.85rem; margin:0;}
+.quick select{
+  padding:.45rem .6rem; border:1px solid var(--border); border-radius:.6rem;
+  background:#fff; color:var(--fg); min-width:120px;
+}
+
+.pill{
+  display:flex; align-items:center; gap:.35rem;
+  padding:.45rem .65rem; border:1px solid var(--border); border-radius:999px;
+  background:#fff; color:var(--muted); font-size:.9rem; white-space:nowrap;
+}
+.pill .dot{width:10px; height:10px; border-radius:50%; background:var(--danger); display:inline-block;}
+.pill .sep{opacity:.5; margin:0 .25rem;}
+.pill .k{color:#334155; font-weight:600;}
+.unitSmall{font-size:.85rem; color:var(--muted); margin-left:.15rem;}
+
+.advMenu{position:relative;}
+.iconBtn{min-width:auto; padding:.55rem .75rem; border-radius:.8rem; font-weight:700;}
+.advPanel{
+  position:absolute; right:0; top:calc(100% + .5rem);
+  width:min(520px, calc(100vw - 2rem));
+  background:var(--card); border:1px solid var(--border); border-radius:14px;
+  box-shadow:var(--shadow); padding:.75rem; z-index:999;
+}
+.advTitle{font-weight:800; margin:.25rem .25rem .75rem;}
+.opts{display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin:0;}
+.opts label{font-size:.85rem; color:var(--muted); margin-right:.25rem}
+input[type=text], select{
+  flex:1 1 240px; min-width:200px;
+  padding:.6rem .75rem; border:1px solid var(--border);
+  border-radius:.6rem; background:#fff; color:var(--fg);
+}
+.advHint{flex-basis:100%; margin-top:.25rem; font-size:.85rem; color:var(--muted); padding:.25rem;}
+
+@media (max-width:480px){
+  .value{font-size:2rem}
+  .controls{width:100%}
+  .controls button{flex:1}
+  .opts label{flex-basis:100%}
+  input[type=text], select{flex-basis:100%}
+}
+
+.footerLogo{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:2rem 1rem 1.5rem;
+  opacity:.85;
+}
+
+.footerLogo img{
+  max-width:240px;
+  height:auto;
+  display:block;
+}
