@@ -102,7 +102,7 @@ body::before {
 header {
   position: sticky;
   top: 0;
-  z-index: 9999;
+  z-index: 99999;
   background: rgba(5, 7, 11, .82);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
@@ -115,6 +115,8 @@ header {
 }
 
 .bar {
+  position: relative;
+  z-index: 99999;
   display: flex;
   flex-wrap: wrap;
   gap: .85rem;
@@ -207,12 +209,16 @@ button:disabled {
    ========================= */
 
 main {
+  position: relative;
+  z-index: 1;
   max-width: 1180px;
   margin: 0 auto;
   padding: 1.15rem 1rem;
 }
 
 .grid {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -233,6 +239,7 @@ main {
 
 .card {
   position: relative;
+  z-index: 1;
   overflow: hidden;
   min-height: 210px;
   padding: 1rem;
@@ -330,6 +337,8 @@ main {
    ========================= */
 
 .topRight {
+  position: relative;
+  z-index: 99999;
   display: flex;
   align-items: center;
   gap: .65rem;
@@ -417,7 +426,7 @@ main {
 
 .advMenu {
   position: relative;
-  z-index: 10000;
+  z-index: 100000;
 }
 
 .iconBtn {
@@ -431,7 +440,7 @@ main {
   position: absolute;
   right: 0;
   top: calc(100% + .6rem);
-  z-index: 10001;
+  z-index: 100001;
   width: min(540px, calc(100vw - 2rem));
   padding: .85rem;
   border: 1px solid var(--border);
@@ -516,8 +525,8 @@ select:focus {
 
 @media (max-width: 780px) {
   header {
-    position: static;
-    z-index: 9999;
+    position: relative;
+    z-index: 99999;
   }
 
   .bar {
@@ -588,6 +597,8 @@ select:focus {
     right: 0;
     left: auto;
     width: min(540px, calc(100vw - 1.4rem));
+    max-height: 80vh;
+    overflow-y: auto;
   }
 
   main {
